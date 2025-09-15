@@ -93,32 +93,29 @@ glm::mat4 TransformManager::getCombinedTransform(const std::string& modelName) c
     // Get parent group for this sub group
     ParentGroupType parentGroup = getSubGroupParent(subGroup);
     
-    // Get model's original world position
-    glm::vec3 modelWorldPos = getModelWorldPosition(modelName);
-    glm::mat4 modelPositionMatrix = glm::translate(glm::mat4(1.0f), modelWorldPos);
+    // Step 1: Get and save the original world position
+    glm::vec3 originalWorldPos = getModelWorldPosition(modelName);
     
-    // Start with model positioned in world
-    glm::mat4 finalTransform = modelPositionMatrix;
+    // Step 2: Start at origin (0,0,0)
+    glm::mat4 finalTransform = glm::mat4(1.0f);
+    
+    // Step 3: Apply transformations at origin
+    if (enableTag && subGroup == SubGroupType::TAG) {
+        finalTransform = tagRotation * tagTranslation;
+    }
+    else if (enableTbg && subGroup == SubGroupType::TBG) {
+        finalTransform = tbgRotation * tbgTranslation;
+    }
+    else if (enableTcg && subGroup == SubGroupType::TCG) {
+        finalTransform = tcgRotation * tcgTranslation;
+    }
+    
+    // Step 4: Add the original world position back
+    finalTransform = glm::translate(glm::mat4(1.0f), originalWorldPos) * finalTransform;
     
     // Apply Positiv group transform if enabled (around world center)
     if (enablePositiv && parentGroup == ParentGroupType::Positiv) {
-        // For Positiv group: Translation * Rotation * ModelWorldPosition
-        finalTransform = positivTranslation * positivRotation * modelPositionMatrix;
-    }
-    
-    // Apply individual sub-group transforms if enabled (around local center)
-    if (enableTag && subGroup == SubGroupType::TAG) {
-        // For sub-groups: ModelWorldPosition * Translation * Rotation * InverseModelWorldPosition
-        glm::mat4 inversePos = createInversePositionMatrix(modelWorldPos);
-        finalTransform = finalTransform * tagTranslation * tagRotation * inversePos;
-    }
-    else if (enableTbg && subGroup == SubGroupType::TBG) {
-        glm::mat4 inversePos = createInversePositionMatrix(modelWorldPos);
-        finalTransform = finalTransform * tbgTranslation * tbgRotation * inversePos;
-    }
-    else if (enableTcg && subGroup == SubGroupType::TCG) {
-        glm::mat4 inversePos = createInversePositionMatrix(modelWorldPos);
-        finalTransform = finalTransform * tcgTranslation * tcgRotation * inversePos;
+        finalTransform = positivTranslation * positivRotation * finalTransform;
     }
     
     return finalTransform;
@@ -206,8 +203,8 @@ void TransformManager::initializeDefaultTransforms()
     // Initialize boolean flags
     enablePositiv = false;  // Start with all groups disabled
     enableTag = true;
-    enableTbg = false;
-    enableTcg = false;
+    enableTbg = true;
+    enableTcg = true;
     
     // Initialize all transformation values to zero (default state)
     // Positiv group
@@ -256,15 +253,15 @@ void TransformManager::initializeSampleTransforms()
     positivTranslationZ = 0.0f; // mm
     
     // TAG group
-    tagRotationX = 0.0f;        // radians
-    tagRotationY = 0.20f;        // radians
-    tagRotationZ = 0.20f;        // radians
+    tagRotationX = 0.30f;        // radians
+    tagRotationY = 0.0f;        // radians
+    tagRotationZ = 0.0f;        // radians
     tagTranslationX = 0.0f;     // mm
     tagTranslationY = 0.0f;     // mm
     tagTranslationZ = 0.0f;     // mm
     
     // TBG group
-    tbgRotationX = 0.0f;        // radians
+    tbgRotationX = 0.50f;        // radians
     tbgRotationY = 0.0f;        // radians
     tbgRotationZ = 0.0f;        // radians
     tbgTranslationX = 0.0f;     // mm
@@ -273,7 +270,7 @@ void TransformManager::initializeSampleTransforms()
     
     // TCG group
     tcgRotationX = 0.0f;        // radians
-    tcgRotationY = 0.0f;        // radians
+    tcgRotationY = 0.20f;        // radians
     tcgRotationZ = 0.0f;        // radians
     tcgTranslationX = 0.0f;     // mm
     tcgTranslationY = 0.0f;     // mm
