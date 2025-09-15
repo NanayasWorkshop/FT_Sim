@@ -1,0 +1,18 @@
+# Navigate to project root
+cd C:\Users\Yuuki\Documents\cpp_tests\FT_Sim
+
+# Remove the entire build directory
+Remove-Item -Recurse -Force build
+
+# Create fresh build directory
+mkdir build
+cd build
+
+# Configure with CMake
+cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+# Build the project
+cmake --build .
+
+# Run the application
+.\Release\Debug\FT_Sim.exe
