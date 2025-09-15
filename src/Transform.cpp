@@ -285,8 +285,8 @@ void TransformManager::initializeDefaultTransforms()
     // Initialize boolean flags
     enablePositiv = false;  // Start with all groups disabled
     enableTag = true;
-    enableTbg = false;
-    enableTcg = false;
+    enableTbg = true;
+    enableTcg = true;
     
     // Initialize all transformation values to zero (default state)
     // Positiv group

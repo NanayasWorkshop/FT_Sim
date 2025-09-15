@@ -16,3 +16,23 @@ cmake --build .
 
 # Run the application
 .\Release\Debug\FT_Sim.exe
+
+
+
+
+
+
+# Create the Release/Debug directory manually if needed
+mkdir Release\Debug -ErrorAction SilentlyContinue
+
+# Copy the Embree DLLs manually
+copy C:\embree\bin\embree4.dll .\Release\Debug\
+copy C:\embree\bin\tbb12.dll .\Release\Debug\
+copy C:\embree\bin\tbbmalloc.dll .\Release\Debug\
+copy C:\embree\bin\sycl8.dll .\Release\Debug\
+copy C:\embree\bin\ur_adapter_level_zero.dll .\Release\Debug\
+copy C:\embree\bin\ur_loader.dll .\Release\Debug\
+copy C:\embree\bin\ur_win_proxy_loader.dll .\Release\Debug\
+
+# Then try building again
+cmake --build .
