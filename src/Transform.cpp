@@ -42,18 +42,21 @@ glm::mat4 TransformManager::getSubGroupTransform(SubGroupType group) const
 
 SubGroupType TransformManager::getModelSubGroup(const std::string& modelName) const
 {
-    // TAG group: A1, A2
-    if (modelName == "A1_model" || modelName == "A2_model") {
+    // TAG group: A1, A2, and TAG spheres
+    if (modelName == "A1_model" || modelName == "A2_model" || 
+        modelName == "TAG_A" || modelName == "TAG_B" || modelName == "TAG_C") {
         return SubGroupType::TAG;
     }
     
-    // TBG group: B1, B2
-    if (modelName == "B1_model" || modelName == "B2_model") {
+    // TBG group: B1, B2, and TBG spheres
+    if (modelName == "B1_model" || modelName == "B2_model" || 
+        modelName == "TBG_A" || modelName == "TBG_B" || modelName == "TBG_C") {
         return SubGroupType::TBG;
     }
     
-    // TCG group: C1, C2
-    if (modelName == "C1_model" || modelName == "C2_model") {
+    // TCG group: C1, C2, and TCG spheres
+    if (modelName == "C1_model" || modelName == "C2_model" || 
+        modelName == "TCG_A" || modelName == "TCG_B" || modelName == "TCG_C") {
         return SubGroupType::TCG;
     }
     
@@ -93,27 +96,43 @@ glm::mat4 TransformManager::getCombinedTransform(const std::string& modelName) c
     // Get parent group for this sub group
     ParentGroupType parentGroup = getSubGroupParent(subGroup);
     
-    // Step 1: Get and save the original world position
-    glm::vec3 originalWorldPos = getModelWorldPosition(modelName);
+    // Step 1: Get the model's final world position
+    glm::vec3 modelWorldPos = getModelWorldPosition(modelName);
     
-    // Step 2: Start at origin (0,0,0)
-    glm::mat4 finalTransform = glm::mat4(1.0f);
+    // Step 2: Start with model positioned in world
+    glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), modelWorldPos);
     
-    // Step 3: Apply transformations at origin
+    // Step 3: Apply sub-group transformations around the group center
     if (enableTag && subGroup == SubGroupType::TAG) {
-        finalTransform = tagRotation * tagTranslation;
+        // All TAG objects rotate around TAG center (0, 24.85, 0)
+        glm::vec3 tagCenter = glm::vec3(0.0f, 24.85f, 0.0f);
+        finalTransform = glm::translate(glm::mat4(1.0f), tagCenter) * 
+                        tagRotation * tagTranslation * 
+                        glm::translate(glm::mat4(1.0f), -tagCenter) * 
+                        glm::translate(glm::mat4(1.0f), modelWorldPos);
     }
     else if (enableTbg && subGroup == SubGroupType::TBG) {
-        finalTransform = tbgRotation * tbgTranslation;
+        // All TBG objects rotate around TBG center
+        float radius = 24.85f;
+        float angle = -30.0f * 3.14159f / 180.0f;
+        glm::vec3 tbgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
+        finalTransform = glm::translate(glm::mat4(1.0f), tbgCenter) * 
+                        tbgRotation * tbgTranslation * 
+                        glm::translate(glm::mat4(1.0f), -tbgCenter) * 
+                        glm::translate(glm::mat4(1.0f), modelWorldPos);
     }
     else if (enableTcg && subGroup == SubGroupType::TCG) {
-        finalTransform = tcgRotation * tcgTranslation;
+        // All TCG objects rotate around TCG center
+        float radius = 24.85f;
+        float angle = -150.0f * 3.14159f / 180.0f;
+        glm::vec3 tcgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
+        finalTransform = glm::translate(glm::mat4(1.0f), tcgCenter) * 
+                        tcgRotation * tcgTranslation * 
+                        glm::translate(glm::mat4(1.0f), -tcgCenter) * 
+                        glm::translate(glm::mat4(1.0f), modelWorldPos);
     }
     
-    // Step 4: Add the original world position back
-    finalTransform = glm::translate(glm::mat4(1.0f), originalWorldPos) * finalTransform;
-    
-    // Apply Positiv group transform if enabled (around world center)
+    // Step 4: Apply Positiv group transform if enabled (around world center)
     if (enablePositiv && parentGroup == ParentGroupType::Positiv) {
         finalTransform = positivTranslation * positivRotation * finalTransform;
     }
@@ -145,6 +164,69 @@ glm::vec3 TransformManager::getModelWorldPosition(const std::string& modelName) 
         float x = radius * cos(angle);
         float y = radius * sin(angle);
         return glm::vec3(x, y, 0.0f);
+    }
+    // TAG spheres - relative to TAG center (0, 24.85, 0)
+    else if (modelName == "TAG_A") {
+        // TAG_A: 4mm straight down from TAG center
+        return glm::vec3(0.0f, radius - 4.0f, 0.0f);
+    }
+    else if (modelName == "TAG_B") {
+        // TAG_B: 4mm at diagonal +Y+X from TAG center
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(offset, radius + offset, 0.0f);
+    }
+    else if (modelName == "TAG_C") {
+        // TAG_C: 4mm at diagonal +Y-X from TAG center
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(-offset, radius + offset, 0.0f);
+    }
+    // TBG spheres - relative to TBG center (21.51, -12.425, 0)
+    else if (modelName == "TBG_A") {
+        // TBG_A: 4mm at diagonal +Y-X from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tbgX - offset, tbgY + offset, 0.0f);
+    }
+    else if (modelName == "TBG_B") {
+        // TBG_B: 4mm straight down from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        return glm::vec3(tbgX, tbgY - 4.0f, 0.0f);
+    }
+    else if (modelName == "TBG_C") {
+        // TBG_C: 4mm at diagonal +Y+X from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tbgX + offset, tbgY + offset, 0.0f);
+    }
+    // TCG spheres - relative to TCG center (-21.51, -12.425, 0)
+    else if (modelName == "TCG_A") {
+        // TCG_A: 4mm at diagonal +Y+X from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tcgX + offset, tcgY + offset, 0.0f);
+    }
+    else if (modelName == "TCG_B") {
+        // TCG_B: 4mm at diagonal +Y-X from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tcgX - offset, tcgY + offset, 0.0f);
+    }
+    else if (modelName == "TCG_C") {
+        // TCG_C: 4mm straight down from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        return glm::vec3(tcgX, tcgY - 4.0f, 0.0f);
     }
     else if (modelName == "stationary_negative_A") {
         return glm::vec3(0.0f, radius, 0.0f); // Same as A group
@@ -201,10 +283,10 @@ void TransformManager::initializeDefaultTransforms()
     subGroupTransforms[SubGroupType::Individual] = createIdentityTransform();
     
     // Initialize boolean flags
-    enablePositiv = false;  // Start with all groups disabled
-    enableTag = true;
-    enableTbg = true;
-    enableTcg = true;
+    enablePositiv = true;  // Start with all groups disabled
+    enableTag = false;
+    enableTbg = false;
+    enableTcg = false;
     
     // Initialize all transformation values to zero (default state)
     // Positiv group
@@ -246,22 +328,22 @@ void TransformManager::initializeSampleTransforms()
     
     // Positiv group
     positivRotationX = 0.0f;    // radians
-    positivRotationY = 0.0f;    // radians
+    positivRotationY = 0.30f;    // radians
     positivRotationZ = 0.0f;    // radians
     positivTranslationX = 0.0f; // mm
     positivTranslationY = 0.0f; // mm
     positivTranslationZ = 0.0f; // mm
     
     // TAG group
-    tagRotationX = 0.30f;        // radians
-    tagRotationY = 0.0f;        // radians
-    tagRotationZ = 0.0f;        // radians
+    tagRotationX = 0.0f;        // radians
+    tagRotationY = 0.20f;        // radians
+    tagRotationZ = 0.20f;        // radians
     tagTranslationX = 0.0f;     // mm
     tagTranslationY = 0.0f;     // mm
     tagTranslationZ = 0.0f;     // mm
     
     // TBG group
-    tbgRotationX = 0.50f;        // radians
+    tbgRotationX = 0.0f;        // radians
     tbgRotationY = 0.0f;        // radians
     tbgRotationZ = 0.0f;        // radians
     tbgTranslationX = 0.0f;     // mm
@@ -270,7 +352,7 @@ void TransformManager::initializeSampleTransforms()
     
     // TCG group
     tcgRotationX = 0.0f;        // radians
-    tcgRotationY = 0.20f;        // radians
+    tcgRotationY = 0.0f;        // radians
     tcgRotationZ = 0.0f;        // radians
     tcgTranslationX = 0.0f;     // mm
     tcgTranslationY = 0.0f;     // mm

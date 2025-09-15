@@ -43,6 +43,9 @@ public:
     bool loadModelAtPosition(const std::string& filePath, const std::string& modelName, 
                             const glm::vec3& color, const glm::vec3& position);
 
+    // Generate sphere geometry
+    bool generateSphere(float radius, int subdivisions, std::vector<float>& vertices, std::vector<unsigned int>& indices);
+
     // Get all loaded models
     const std::vector<Model>& getModels() const;
 

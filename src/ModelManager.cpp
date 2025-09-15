@@ -3,6 +3,11 @@
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 ModelManager::ModelManager()
 {
@@ -77,6 +82,81 @@ bool ModelManager::loadAllModels(const std::string& directory)
         allLoaded = false;
     }
     
+    // Add TAG spheres (A, B, C)
+    std::vector<std::string> tagSphereNames = {"TAG_A", "TAG_B", "TAG_C"};
+    
+    for (const std::string& sphereName : tagSphereNames) {
+        Model sphereModel;
+        sphereModel.name = sphereName;
+        sphereModel.color = getModelColor(sphereName);
+        sphereModel.position = getModelPosition(sphereName);
+        sphereModel.subGroupType = SubGroupType::Individual;
+        sphereModel.parentGroupType = ParentGroupType::Positiv;
+        
+        // Generate sphere geometry (4mm diameter = 2mm radius)
+        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+            std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
+            allLoaded = false;
+        } else {
+            sphereModel.vertexCount = sphereModel.vertices.size() / 3;
+            sphereModel.triangleCount = sphereModel.indices.size() / 3;
+            models.push_back(sphereModel);
+            
+            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
+                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
+        }
+    }
+    
+    // Add TBG spheres (A, B, C)
+    std::vector<std::string> tbgSphereNames = {"TBG_A", "TBG_B", "TBG_C"};
+    
+    for (const std::string& sphereName : tbgSphereNames) {
+        Model sphereModel;
+        sphereModel.name = sphereName;
+        sphereModel.color = getModelColor(sphereName);
+        sphereModel.position = getModelPosition(sphereName);
+        sphereModel.subGroupType = SubGroupType::Individual;
+        sphereModel.parentGroupType = ParentGroupType::Positiv;
+        
+        // Generate sphere geometry (4mm diameter = 2mm radius)
+        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+            std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
+            allLoaded = false;
+        } else {
+            sphereModel.vertexCount = sphereModel.vertices.size() / 3;
+            sphereModel.triangleCount = sphereModel.indices.size() / 3;
+            models.push_back(sphereModel);
+            
+            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
+                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
+        }
+    }
+    
+    // Add TCG spheres (A, B, C)
+    std::vector<std::string> tcgSphereNames = {"TCG_A", "TCG_B", "TCG_C"};
+    
+    for (const std::string& sphereName : tcgSphereNames) {
+        Model sphereModel;
+        sphereModel.name = sphereName;
+        sphereModel.color = getModelColor(sphereName);
+        sphereModel.position = getModelPosition(sphereName);
+        sphereModel.subGroupType = SubGroupType::Individual;
+        sphereModel.parentGroupType = ParentGroupType::Positiv;
+        
+        // Generate sphere geometry (4mm diameter = 2mm radius)
+        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+            std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
+            allLoaded = false;
+        } else {
+            sphereModel.vertexCount = sphereModel.vertices.size() / 3;
+            sphereModel.triangleCount = sphereModel.indices.size() / 3;
+            models.push_back(sphereModel);
+            
+            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
+                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
+        }
+    }
+    
     std::cout << "Successfully loaded " << models.size() << " models" << std::endl;
     printModelStats();
     
@@ -113,6 +193,50 @@ bool ModelManager::loadModelAtPosition(const std::string& filePath, const std::s
               << ") with color (" << color.r << ", " << color.g << ", " << color.b
               << ") - " << model.vertexCount << " vertices and " 
               << model.triangleCount << " triangles" << std::endl;
+    
+    return true;
+}
+
+bool ModelManager::generateSphere(float radius, int subdivisions, std::vector<float>& vertices, std::vector<unsigned int>& indices)
+{
+    vertices.clear();
+    indices.clear();
+    
+    // Generate sphere using UV coordinates (latitude/longitude)
+    for (int i = 0; i <= subdivisions; ++i) {
+        float phi = M_PI * float(i) / float(subdivisions); // 0 to PI
+        
+        for (int j = 0; j <= subdivisions; ++j) {
+            float theta = 2.0f * M_PI * float(j) / float(subdivisions); // 0 to 2*PI
+            
+            // Spherical coordinates to Cartesian
+            float x = radius * sin(phi) * cos(theta);
+            float y = radius * cos(phi);
+            float z = radius * sin(phi) * sin(theta);
+            
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+        }
+    }
+    
+    // Generate indices for triangles
+    for (int i = 0; i < subdivisions; ++i) {
+        for (int j = 0; j < subdivisions; ++j) {
+            int first = i * (subdivisions + 1) + j;
+            int second = first + subdivisions + 1;
+            
+            // First triangle
+            indices.push_back(first);
+            indices.push_back(second);
+            indices.push_back(first + 1);
+            
+            // Second triangle
+            indices.push_back(second);
+            indices.push_back(second + 1);
+            indices.push_back(first + 1);
+        }
+    }
     
     return true;
 }
@@ -298,6 +422,69 @@ glm::vec3 ModelManager::getModelPosition(const std::string& modelName)
         // Center position
         return glm::vec3(0.0f, 0.0f, 0.0f);
     }
+    // TAG spheres - relative to TAG center (0, 24.85, 0)
+    else if (modelName == "TAG_A") {
+        // TAG_A: 4mm straight down from TAG center
+        return glm::vec3(0.0f, radius - 4.0f, 0.0f);
+    }
+    else if (modelName == "TAG_B") {
+        // TAG_B: 4mm at diagonal +Y+X from TAG center (45° angle)
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(offset, radius + offset, 0.0f);
+    }
+    else if (modelName == "TAG_C") {
+        // TAG_C: 4mm at diagonal +Y-X from TAG center (135° angle)
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(-offset, radius + offset, 0.0f);
+    }
+    // TBG spheres - relative to TBG center (21.51, -12.425, 0)
+    else if (modelName == "TBG_A") {
+        // TBG_A: 4mm at diagonal +Y-X from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tbgX - offset, tbgY + offset, 0.0f);
+    }
+    else if (modelName == "TBG_B") {
+        // TBG_B: 4mm straight down from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        return glm::vec3(tbgX, tbgY - 4.0f, 0.0f);
+    }
+    else if (modelName == "TBG_C") {
+        // TBG_C: 4mm at diagonal +Y+X from TBG center (rotated pattern)
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float tbgX = radius * cos(angle);
+        float tbgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tbgX + offset, tbgY + offset, 0.0f);
+    }
+    // TCG spheres - relative to TCG center (-21.51, -12.425, 0)
+    else if (modelName == "TCG_A") {
+        // TCG_A: 4mm at diagonal +Y+X from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tcgX + offset, tcgY + offset, 0.0f);
+    }
+    else if (modelName == "TCG_B") {
+        // TCG_B: 4mm at diagonal +Y-X from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        float offset = 4.0f / sqrt(2.0f); // 2.83mm in each direction
+        return glm::vec3(tcgX - offset, tcgY + offset, 0.0f);
+    }
+    else if (modelName == "TCG_C") {
+        // TCG_C: 4mm straight down from TCG center (rotated pattern)
+        float angle = -150.0f * 3.14159f / 180.0f;
+        float tcgX = radius * cos(angle);
+        float tcgY = radius * sin(angle);
+        return glm::vec3(tcgX, tcgY - 4.0f, 0.0f);
+    }
     
     // Default position
     return glm::vec3(0.0f, 0.0f, 0.0f);
@@ -328,6 +515,18 @@ glm::vec3 ModelManager::getModelColor(const std::string& modelName)
              modelName == "stationary_negative_B" ||
              modelName == "stationary_negative_C") {
         return glm::vec3(0.7f, 0.7f, 0.7f); // Light gray
+    }
+    // All A spheres are Red
+    else if (modelName == "TAG_A" || modelName == "TBG_A" || modelName == "TCG_A") {
+        return glm::vec3(1.0f, 0.0f, 0.0f); // Red
+    }
+    // All B spheres are Green
+    else if (modelName == "TAG_B" || modelName == "TBG_B" || modelName == "TCG_B") {
+        return glm::vec3(0.0f, 1.0f, 0.0f); // Green
+    }
+    // All C spheres are Blue
+    else if (modelName == "TAG_C" || modelName == "TBG_C" || modelName == "TCG_C") {
+        return glm::vec3(0.0f, 0.0f, 1.0f); // Blue
     }
     
     // Default color
