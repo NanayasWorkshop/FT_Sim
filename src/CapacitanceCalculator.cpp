@@ -58,8 +58,6 @@ bool CapacitanceCalculator::initialize(const std::vector<Model>& models, Transfo
 
 std::vector<CapacitanceResult> CapacitanceCalculator::calculateCapacitances()
 {
-    std::cout << "\nCalculating capacitances for all positive models..." << std::endl;
-    
     std::vector<CapacitanceResult> results;
     
     for (const std::string& modelName : POSITIVE_MODEL_NAMES) {
@@ -68,10 +66,6 @@ std::vector<CapacitanceResult> CapacitanceCalculator::calculateCapacitances()
         
         // Convert to picofarads for display
         double capacitancePF = result.capacitance * FARADS_TO_PICOFARADS;
-        
-        std::cout << "Model " << modelName << ": " << std::scientific << std::setprecision(3) 
-                  << capacitancePF << " pF (" << result.hitCount << "/" 
-                  << result.triangleCount << " hits)" << std::endl;
     }
     
     return results;

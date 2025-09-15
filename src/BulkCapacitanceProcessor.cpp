@@ -10,12 +10,198 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-BulkCapacitanceProcessor::BulkCapacitanceProcessor() : maxRows(0)
+BulkCapacitanceProcessor::BulkCapacitanceProcessor() : maxRows(0), currentStepRow(0), stepModeActive(false)
 {
 }
 
 BulkCapacitanceProcessor::~BulkCapacitanceProcessor()
 {
+}
+
+bool BulkCapacitanceProcessor::initializeStepMode(const std::string& csvDirectory)
+{
+    std::cout << "Initializing step mode with CSV directory: " << csvDirectory << std::endl;
+    
+    // Load all CSV files
+    std::string tagPath = csvDirectory + "/TAG.csv";
+    std::string tbgPath = csvDirectory + "/TBG.csv";
+    std::string tcgPath = csvDirectory + "/TCG.csv";
+    
+    if (!loadCSVFile(tagPath, tagData)) {
+        std::cerr << "Failed to load TAG.csv" << std::endl;
+        return false;
+    }
+    tagData.groupName = "TAG";
+    
+    if (!loadCSVFile(tbgPath, tbgData)) {
+        std::cerr << "Failed to load TBG.csv" << std::endl;
+        return false;
+    }
+    tbgData.groupName = "TBG";
+    
+    if (!loadCSVFile(tcgPath, tcgData)) {
+        std::cerr << "Failed to load TCG.csv" << std::endl;
+        return false;
+    }
+    tcgData.groupName = "TCG";
+    
+    // Find maximum number of rows
+    maxRows = std::max({tagData.rows.size(), tbgData.rows.size(), tcgData.rows.size()});
+    
+    std::cout << "Loaded CSV files for step mode:" << std::endl;
+    std::cout << "  TAG: " << tagData.rows.size() << " rows" << std::endl;
+    std::cout << "  TBG: " << tbgData.rows.size() << " rows" << std::endl;
+    std::cout << "  TCG: " << tcgData.rows.size() << " rows" << std::endl;
+    std::cout << "  Max rows for stepping: " << maxRows << std::endl;
+    
+    currentStepRow = 0;
+    stepModeActive = true;
+    
+    return true;
+}
+
+bool BulkCapacitanceProcessor::stepToRow(size_t rowNumber, TransformManager& transformManager)
+{
+    if (!stepModeActive) {
+        std::cerr << "Step mode not initialized" << std::endl;
+        return false;
+    }
+    
+    if (rowNumber >= maxRows) {
+        std::cerr << "Row " << rowNumber << " out of range (max: " << maxRows - 1 << ")" << std::endl;
+        return false;
+    }
+    
+    currentStepRow = rowNumber;
+    
+    std::cout << "Stepping to row " << currentStepRow << std::endl;
+    
+    // Get resting positions for each group
+    SpherePositions tagResting = getRestingPositions("TAG");
+    SpherePositions tbgResting = getRestingPositions("TBG");
+    SpherePositions tcgResting = getRestingPositions("TCG");
+    
+    // Reset transformations to default state
+    resetTransformations(transformManager);
+    
+    // Apply transformations for this row
+    if (currentStepRow < tagData.rows.size()) {
+        // Calculate TAG transformation
+        SpherePositions tagDeformed = addOffsets(tagResting, tagData.rows[currentStepRow].offsets);
+        CoordinateSystem tagUVW = createCoordinateSystem(tagResting.A, tagResting.B, tagResting.C, 'A');
+        CoordinateSystem tagIJK = createCoordinateSystem(tagDeformed.A, tagDeformed.B, tagDeformed.C, 'A');
+        glm::mat4 tagTransform = calculateRigidBodyTransform(tagUVW, tagIJK);
+        
+        std::cout << "TAG offsets: A(" << tagData.rows[currentStepRow].offsets.A.x << "," 
+                  << tagData.rows[currentStepRow].offsets.A.y << "," << tagData.rows[currentStepRow].offsets.A.z << ")" << std::endl;
+        
+        // Apply TAG transformation to TransformManager
+        transformManager.applyCalculatedTransform("TAG", tagTransform);
+    }
+    
+    if (currentStepRow < tbgData.rows.size()) {
+        // Calculate TBG transformation
+        SpherePositions tbgDeformed = addOffsets(tbgResting, tbgData.rows[currentStepRow].offsets);
+        CoordinateSystem tbgUVW = createCoordinateSystem(tbgResting.A, tbgResting.B, tbgResting.C, 'B');
+        CoordinateSystem tbgIJK = createCoordinateSystem(tbgDeformed.A, tbgDeformed.B, tbgDeformed.C, 'B');
+        glm::mat4 tbgTransform = calculateRigidBodyTransform(tbgUVW, tbgIJK);
+        
+        std::cout << "TBG offsets: A(" << tbgData.rows[currentStepRow].offsets.A.x << "," 
+                  << tbgData.rows[currentStepRow].offsets.A.y << "," << tbgData.rows[currentStepRow].offsets.A.z << ")" << std::endl;
+        
+        // Apply TBG transformation to TransformManager
+        transformManager.applyCalculatedTransform("TBG", tbgTransform);
+    }
+    
+    if (currentStepRow < tcgData.rows.size()) {
+        // Calculate TCG transformation
+        SpherePositions tcgDeformed = addOffsets(tcgResting, tcgData.rows[currentStepRow].offsets);
+        CoordinateSystem tcgUVW = createCoordinateSystem(tcgResting.A, tcgResting.B, tcgResting.C, 'C');
+        CoordinateSystem tcgIJK = createCoordinateSystem(tcgDeformed.A, tcgDeformed.B, tcgDeformed.C, 'C');
+        glm::mat4 tcgTransform = calculateRigidBodyTransform(tcgUVW, tcgIJK);
+        
+        std::cout << "TCG offsets: A(" << tcgData.rows[currentStepRow].offsets.A.x << "," 
+                  << tcgData.rows[currentStepRow].offsets.A.y << "," << tcgData.rows[currentStepRow].offsets.A.z << ")" << std::endl;
+        
+        // Apply TCG transformation to TransformManager
+        transformManager.applyCalculatedTransform("TCG", tcgTransform);
+    }
+    
+    printDetailedDebugInfo(currentStepRow, transformManager);
+    
+    return true;
+}
+
+size_t BulkCapacitanceProcessor::getCurrentRow() const
+{
+    return currentStepRow;
+}
+
+size_t BulkCapacitanceProcessor::getMaxRows() const
+{
+    return maxRows;
+}
+
+void BulkCapacitanceProcessor::printCurrentRowInfo() const
+{
+    if (!stepModeActive) {
+        std::cout << "Step mode not active" << std::endl;
+        return;
+    }
+    
+    std::cout << "=== ROW " << currentStepRow << " INFO ===" << std::endl;
+    
+    if (currentStepRow < tagData.rows.size()) {
+        const auto& tagOffsets = tagData.rows[currentStepRow].offsets;
+        std::cout << "TAG offsets: A(" << tagOffsets.A.x << "," << tagOffsets.A.y << "," << tagOffsets.A.z 
+                  << ") B(" << tagOffsets.B.x << "," << tagOffsets.B.y << "," << tagOffsets.B.z 
+                  << ") C(" << tagOffsets.C.x << "," << tagOffsets.C.y << "," << tagOffsets.C.z << ")" << std::endl;
+    }
+    
+    if (currentStepRow < tbgData.rows.size()) {
+        const auto& tbgOffsets = tbgData.rows[currentStepRow].offsets;
+        std::cout << "TBG offsets: A(" << tbgOffsets.A.x << "," << tbgOffsets.A.y << "," << tbgOffsets.A.z 
+                  << ") B(" << tbgOffsets.B.x << "," << tbgOffsets.B.y << "," << tbgOffsets.B.z 
+                  << ") C(" << tbgOffsets.C.x << "," << tbgOffsets.C.y << "," << tbgOffsets.C.z << ")" << std::endl;
+    }
+    
+    if (currentStepRow < tcgData.rows.size()) {
+        const auto& tcgOffsets = tcgData.rows[currentStepRow].offsets;
+        std::cout << "TCG offsets: A(" << tcgOffsets.A.x << "," << tcgOffsets.A.y << "," << tcgOffsets.A.z 
+                  << ") B(" << tcgOffsets.B.x << "," << tcgOffsets.B.y << "," << tcgOffsets.B.z 
+                  << ") C(" << tcgOffsets.C.x << "," << tcgOffsets.C.y << "," << tcgOffsets.C.z << ")" << std::endl;
+    }
+    
+    std::cout << "====================" << std::endl;
+}
+
+void BulkCapacitanceProcessor::printDetailedDebugInfo(size_t row, TransformManager& transformManager)
+{
+    std::cout << "\n=== DETAILED DEBUG INFO FOR ROW " << row << " ===" << std::endl;
+    
+    // Print world positions of key models
+    std::vector<std::string> keyModels = {"A1_model", "A2_model", "TAG_A", "TAG_B", "TAG_C", 
+                                         "B1_model", "B2_model", "TBG_A", "TBG_B", "TBG_C",
+                                         "C1_model", "C2_model", "TCG_A", "TCG_B", "TCG_C"};
+    
+    std::cout << "World positions after transforms:" << std::endl;
+    for (const std::string& modelName : keyModels) {
+        glm::vec3 worldPos = transformManager.getModelWorldPosition(modelName);
+        glm::mat4 finalTransform = transformManager.getCombinedTransform(modelName);
+        
+        // Apply the transform to get final position
+        glm::vec4 transformedPos = finalTransform * glm::vec4(worldPos, 1.0f);
+        
+        std::cout << "  " << modelName << ": Original(" << worldPos.x << "," << worldPos.y << "," << worldPos.z 
+                  << ") -> Final(" << transformedPos.x << "," << transformedPos.y << "," << transformedPos.z << ")" << std::endl;
+    }
+    
+    // Print transform enable flags
+    std::cout << "Transform flags: TAG=" << (transformManager.enableTag ? "ON" : "OFF") 
+              << " TBG=" << (transformManager.enableTbg ? "ON" : "OFF")
+              << " TCG=" << (transformManager.enableTcg ? "ON" : "OFF") << std::endl;
+              
+    std::cout << "=================================================" << std::endl;
 }
 
 bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory, 
@@ -200,34 +386,53 @@ std::vector<std::string> BulkCapacitanceProcessor::splitCSVLine(const std::strin
 
 glm::vec3 BulkCapacitanceProcessor::calculateCircumcenter(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C)
 {
-    // Calculate circumcenter of triangle ABC
+    // Vector differences
     glm::vec3 AB = B - A;
     glm::vec3 AC = C - A;
-    glm::vec3 crossProduct = glm::cross(AB, AC);
     
-    float denominator = 2.0f * glm::dot(crossProduct, crossProduct);
-    if (std::abs(denominator) < 1e-10f) {
+    // Cross product for normal vector
+    glm::vec3 normal = glm::cross(AB, AC);
+    float normalLengthSq = glm::dot(normal, normal);
+    
+    // Check for collinear points
+    if (normalLengthSq < 1e-10f) {
         // Points are collinear, return centroid
         return (A + B + C) / 3.0f;
     }
     
-    float alpha = glm::dot(AC, AC) * glm::dot(AB, crossProduct) / denominator;
-    float beta = -glm::dot(AB, AB) * glm::dot(AC, crossProduct) / denominator;
+    // Calculate circumcenter using the standard formula
+    float AB_lengthSq = glm::dot(AB, AB);
+    float AC_lengthSq = glm::dot(AC, AC);
     
-    return A + alpha * AB + beta * AC;
+    glm::vec3 numerator = glm::cross((AC_lengthSq * AB - AB_lengthSq * AC), normal);
+    glm::vec3 circumcenter = A + numerator / (2.0f * normalLengthSq);
+    
+    return circumcenter;
 }
 
 CoordinateSystem BulkCapacitanceProcessor::createCoordinateSystem(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C, char referencePoint)
 {
     CoordinateSystem coord;
     
+    std::cout << "=== createCoordinateSystem DEBUG (ref=" << referencePoint << ") ===" << std::endl;
+    std::cout << "Input points: A(" << A.x << "," << A.y << "," << A.z << ") B(" << B.x << "," << B.y << "," << B.z << ") C(" << C.x << "," << C.y << "," << C.z << ")" << std::endl;
+    
     // Calculate circumcenter as origin
     coord.origin = calculateCircumcenter(A, B, C);
+    std::cout << "Circumcenter: (" << coord.origin.x << "," << coord.origin.y << "," << coord.origin.z << ")" << std::endl;
     
     // Calculate W axis (normal to plane ABC)
     glm::vec3 AB = B - A;
     glm::vec3 AC = C - A;
-    coord.W = glm::normalize(glm::cross(AB, AC));
+    std::cout << "AB vector: (" << AB.x << "," << AB.y << "," << AB.z << ")" << std::endl;
+    std::cout << "AC vector: (" << AC.x << "," << AC.y << "," << AC.z << ")" << std::endl;
+    
+    glm::vec3 crossProduct = glm::cross(AB, AC);
+    std::cout << "Cross product: (" << crossProduct.x << "," << crossProduct.y << "," << crossProduct.z << ")" << std::endl;
+    std::cout << "Cross product length: " << glm::length(crossProduct) << std::endl;
+    
+    coord.W = glm::normalize(crossProduct);
+    std::cout << "W axis (normalized): (" << coord.W.x << "," << coord.W.y << "," << coord.W.z << ")" << std::endl;
     
     // Calculate V axis (inverted line from center to reference point)
     glm::vec3 referencePos;
@@ -237,12 +442,24 @@ CoordinateSystem BulkCapacitanceProcessor::createCoordinateSystem(const glm::vec
         case 'C': referencePos = C; break;
         default: referencePos = A; break;
     }
+    std::cout << "Reference position: (" << referencePos.x << "," << referencePos.y << "," << referencePos.z << ")" << std::endl;
     
     glm::vec3 centerToRef = referencePos - coord.origin;
+    std::cout << "Center to reference: (" << centerToRef.x << "," << centerToRef.y << "," << centerToRef.z << ")" << std::endl;
+    std::cout << "Center to reference length: " << glm::length(centerToRef) << std::endl;
+    
     coord.V = -glm::normalize(centerToRef);  // Inverted
+    std::cout << "V axis (normalized & inverted): (" << coord.V.x << "," << coord.V.y << "," << coord.V.z << ")" << std::endl;
     
     // Calculate U axis (cross product of V and W)
-    coord.U = glm::normalize(glm::cross(coord.V, coord.W));
+    glm::vec3 VxW = glm::cross(coord.V, coord.W);
+    std::cout << "V x W: (" << VxW.x << "," << VxW.y << "," << VxW.z << ")" << std::endl;
+    std::cout << "V x W length: " << glm::length(VxW) << std::endl;
+    
+    coord.U = glm::normalize(VxW);
+    std::cout << "U axis (normalized): (" << coord.U.x << "," << coord.U.y << "," << coord.U.z << ")" << std::endl;
+    
+    std::cout << "=========================================" << std::endl;
     
     return coord;
 }
@@ -264,6 +481,11 @@ glm::mat4 BulkCapacitanceProcessor::calculateRigidBodyTransform(const Coordinate
     toMatrix[1] = glm::vec4(to.V, 0.0f);
     toMatrix[2] = glm::vec4(to.W, 0.0f);
     toMatrix[3] = glm::vec4(to.origin, 1.0f);
+
+    std::cout << "FROM matrix determinant: " << glm::determinant(fromMatrix) << std::endl;
+    std::cout << "TO matrix determinant: " << glm::determinant(toMatrix) << std::endl;
+    glm::mat4 result = toMatrix * glm::inverse(fromMatrix);
+    std::cout << "Result[0]: " << result[0][0] << "," << result[0][1] << "," << result[0][2] << std::endl;
     
     // Calculate transformation: to * inverse(from)
     return toMatrix * glm::inverse(fromMatrix);
@@ -276,7 +498,7 @@ SpherePositions BulkCapacitanceProcessor::getRestingPositions(const std::string&
     
     if (groupName == "TAG") {
         // TAG group positions
-        positions.A = glm::vec3(0.0f, radius - 4.0f, 0.0f);  // TAG_A
+        positions.A = glm::vec3(0.001f, radius - 4.0f, 0.0f);  // TAG_A
         float offset = 4.0f / sqrt(2.0f);
         positions.B = glm::vec3(offset, radius + offset, 0.0f);   // TAG_B
         positions.C = glm::vec3(-offset, radius + offset, 0.0f);  // TAG_C

@@ -9,12 +9,12 @@
 #include "Render.h"
 #include "Transform.h"
 #include "CapacitanceCalculator.h"
-#include "BulkCapacitanceProcessor.h"  // NEW
+#include "BulkCapacitanceProcessor.h"
 
 // Window settings
 const unsigned int WINDOW_WIDTH = 1200;
 const unsigned int WINDOW_HEIGHT = 800;
-const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Bulk Capacitance Processing";
+const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Step Mode Debug";
 
 // Global objects
 Camera* camera = nullptr;
@@ -22,13 +22,19 @@ ModelManager* modelManager = nullptr;
 Render* renderer = nullptr;
 TransformManager* transformManager = nullptr;
 CapacitanceCalculator* capacitanceCalculator = nullptr;
-BulkCapacitanceProcessor* bulkProcessor = nullptr;  // NEW
+BulkCapacitanceProcessor* bulkProcessor = nullptr;
 
 // Input state
 bool wireframeMode = false;
 bool firstMouse = true;
 double lastX = WINDOW_WIDTH / 2.0;
 double lastY = WINDOW_HEIGHT / 2.0;
+
+// Step mode state
+bool stepMode = false;
+size_t currentRow = 0;
+size_t maxRows = 0;
+bool stepModeInitialized = false;
 
 // Forward declarations
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -37,6 +43,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow* window);
 bool runBulkCapacitanceProcessing();
+bool initializeStepMode();
+void stepToRow(size_t row);
+void printStepModeInfo();
 
 int main()
 {
@@ -90,7 +99,7 @@ int main()
         modelManager = new ModelManager();
         transformManager = new TransformManager();
         capacitanceCalculator = new CapacitanceCalculator();
-        bulkProcessor = new BulkCapacitanceProcessor();  // NEW
+        bulkProcessor = new BulkCapacitanceProcessor();
 
         // Load all OBJ models
         if (!modelManager->loadAllModels("models/")) {
@@ -122,18 +131,11 @@ int main()
         std::cout << "- Mouse wheel: Zoom in/out" << std::endl;
         std::cout << "- SPACE: Toggle wireframe/solid mode" << std::endl;
         std::cout << "- C: Calculate single capacitance" << std::endl;
-        std::cout << "- B: Run bulk capacitance processing from CSV files" << std::endl;  // NEW
+        std::cout << "- S: Initialize step mode" << std::endl;
+        std::cout << "- N: Next row (step mode)" << std::endl;
+        std::cout << "- P: Previous row (step mode)" << std::endl;
+        std::cout << "- B: Run bulk capacitance processing from CSV files" << std::endl;
         std::cout << "- ESC: Exit" << std::endl;
-
-        // Run bulk capacitance processing immediately
-        std::cout << "\n" << std::string(60, '=') << std::endl;
-        std::cout << "STARTING BULK CAPACITANCE PROCESSING" << std::endl;
-        std::cout << std::string(60, '=') << std::endl;
-        
-        if (!runBulkCapacitanceProcessing()) {
-            std::cerr << "Bulk capacitance processing failed" << std::endl;
-            return -1;
-        }
 
     } catch (const std::exception& e) {
         std::cerr << "Initialization error: " << e.what() << std::endl;
@@ -167,16 +169,88 @@ int main()
     delete renderer;
     delete transformManager;
     delete capacitanceCalculator;
-    delete bulkProcessor;  // NEW
+    delete bulkProcessor;
 
     glfwTerminate();
     return 0;
 }
 
+bool initializeStepMode()
+{
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "INITIALIZING STEP MODE" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+    
+    std::string csvDirectory = "csv_data";
+    
+    if (!bulkProcessor->initializeStepMode(csvDirectory)) {
+        std::cerr << "Failed to initialize step mode" << std::endl;
+        return false;
+    }
+    
+    maxRows = bulkProcessor->getMaxRows();
+    currentRow = 0;
+    stepModeInitialized = true;
+    stepMode = true;
+    
+    std::cout << "Step mode initialized with " << maxRows << " rows" << std::endl;
+    std::cout << "Starting at row 0 (resting positions)" << std::endl;
+    
+    // Set to resting positions initially
+    stepToRow(0);
+    
+    return true;
+}
+
+void stepToRow(size_t row)
+{
+    if (!stepModeInitialized || !bulkProcessor) {
+        std::cerr << "Step mode not initialized" << std::endl;
+        return;
+    }
+    
+    if (row >= maxRows) {
+        std::cerr << "Row " << row << " out of range (max: " << maxRows - 1 << ")" << std::endl;
+        return;
+    }
+    
+    currentRow = row;
+    
+    std::cout << "\n" << std::string(40, '-') << std::endl;
+    std::cout << "STEPPING TO ROW " << currentRow << "/" << (maxRows - 1) << std::endl;
+    std::cout << std::string(40, '-') << std::endl;
+    
+    if (!bulkProcessor->stepToRow(currentRow, *transformManager)) {
+        std::cerr << "Failed to step to row " << currentRow << std::endl;
+        return;
+    }
+    
+    bulkProcessor->printCurrentRowInfo();
+    
+    std::cout << "Row " << currentRow << " applied successfully" << std::endl;
+}
+
+void printStepModeInfo()
+{
+    if (!stepMode) {
+        std::cout << "Step mode not active" << std::endl;
+        return;
+    }
+    
+    std::cout << "\n=== STEP MODE STATUS ===" << std::endl;
+    std::cout << "Current row: " << currentRow << "/" << (maxRows - 1) << std::endl;
+    std::cout << "Total rows: " << maxRows << std::endl;
+    std::cout << "Initialized: " << (stepModeInitialized ? "YES" : "NO") << std::endl;
+    std::cout << "========================" << std::endl;
+}
+
 bool runBulkCapacitanceProcessing()
 {
-    // Run bulk capacitance processing with CSV files
-    std::string csvDirectory = "csv_data";  // Directory containing TAG.csv, TBG.csv, TCG.csv
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "STARTING BULK CAPACITANCE PROCESSING" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+    
+    std::string csvDirectory = "csv_data";
     
     if (!bulkProcessor->processCSVFiles(csvDirectory, *capacitanceCalculator, *transformManager)) {
         std::cerr << "Bulk processing failed" << std::endl;
@@ -238,7 +312,33 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                     capacitanceCalculator->printResults(results);
                 }
                 break;
-            case GLFW_KEY_B:  // NEW: Bulk capacitance processing
+            case GLFW_KEY_S:  // Initialize step mode
+                std::cout << "\nInitializing step mode..." << std::endl;
+                initializeStepMode();
+                break;
+            case GLFW_KEY_N:  // Next row in step mode
+                if (stepMode && stepModeInitialized) {
+                    if (currentRow < maxRows - 1) {
+                        stepToRow(currentRow + 1);
+                    } else {
+                        std::cout << "Already at last row (" << currentRow << ")" << std::endl;
+                    }
+                } else {
+                    std::cout << "Step mode not active. Press 'S' to initialize." << std::endl;
+                }
+                break;
+            case GLFW_KEY_P:  // Previous row in step mode
+                if (stepMode && stepModeInitialized) {
+                    if (currentRow > 0) {
+                        stepToRow(currentRow - 1);
+                    } else {
+                        std::cout << "Already at first row (0)" << std::endl;
+                    }
+                } else {
+                    std::cout << "Step mode not active. Press 'S' to initialize." << std::endl;
+                }
+                break;
+            case GLFW_KEY_B:  // Bulk capacitance processing
                 std::cout << "\nStarting bulk capacitance processing..." << std::endl;
                 runBulkCapacitanceProcessing();
                 break;

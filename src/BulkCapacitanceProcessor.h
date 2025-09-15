@@ -35,10 +35,17 @@ public:
     BulkCapacitanceProcessor();
     ~BulkCapacitanceProcessor();
 
-    // Main processing function
+    // Original bulk processing function
     bool processCSVFiles(const std::string& csvDirectory, 
                         CapacitanceCalculator& capacitanceCalculator,
                         TransformManager& transformManager);
+
+    // NEW: Step mode functions
+    bool initializeStepMode(const std::string& csvDirectory);
+    bool stepToRow(size_t rowNumber, TransformManager& transformManager);
+    size_t getCurrentRow() const;
+    size_t getMaxRows() const;
+    void printCurrentRowInfo() const;
 
 private:
     // CSV loading
@@ -64,11 +71,16 @@ private:
     
     // Helper functions
     void resetTransformations(TransformManager& transformManager);
+    void printDetailedDebugInfo(size_t row, TransformManager& transformManager);
     std::string trim(const std::string& str);
     
     // Data storage
     GroupCSVData tagData, tbgData, tcgData;
     size_t maxRows;
+    
+    // NEW: Step mode state
+    size_t currentStepRow;
+    bool stepModeActive;
 };
 
 #endif
