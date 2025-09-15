@@ -58,6 +58,21 @@ public:
     // Debug info
     void printGroupTransforms() const;
 
+    // NEW: Methods for applying calculated transformation matrices
+    void applyCalculatedTransform(const std::string& groupName, const glm::mat4& transform);
+    void setGroupTransformMatrix(SubGroupType group, const glm::mat4& transform);
+    
+    // NEW: Matrix decomposition helpers
+    void decomposeTransformMatrix(const glm::mat4& transform, 
+                                 glm::vec3& translation, 
+                                 glm::vec3& rotation, 
+                                 glm::vec3& scale);
+    
+    // NEW: Apply decomposed transformation to specific group
+    void applyDecomposedTransform(SubGroupType group, 
+                                 const glm::vec3& translation, 
+                                 const glm::vec3& rotation);
+
     // Boolean flags for enabling/disabling transformations
     bool enablePositiv;
     bool enableTag;
@@ -113,6 +128,11 @@ private:
     // Helper methods
     glm::mat4 createIdentityTransform() const;
     glm::mat4 createInversePositionMatrix(const glm::vec3& position) const;
+
+    // NEW: Helper methods for matrix decomposition
+    glm::vec3 extractTranslation(const glm::mat4& matrix);
+    glm::vec3 extractRotation(const glm::mat4& matrix);
+    glm::vec3 extractScale(const glm::mat4& matrix);
 };
 
 #endif

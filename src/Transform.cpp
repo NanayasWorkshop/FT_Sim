@@ -431,3 +431,138 @@ glm::mat4 TransformManager::createInversePositionMatrix(const glm::vec3& positio
 {
     return glm::translate(glm::mat4(1.0f), -position);
 }
+
+// NEW: Methods for applying calculated transformation matrices
+void TransformManager::applyCalculatedTransform(const std::string& groupName, const glm::mat4& transform)
+{
+    SubGroupType group;
+    
+    if (groupName == "TAG") {
+        group = SubGroupType::TAG;
+    } else if (groupName == "TBG") {
+        group = SubGroupType::TBG;
+    } else if (groupName == "TCG") {
+        group = SubGroupType::TCG;
+    } else {
+        std::cerr << "Unknown group name: " << groupName << std::endl;
+        return;
+    }
+    
+    // Decompose the transformation matrix
+    glm::vec3 translation, rotation, scale;
+    decomposeTransformMatrix(transform, translation, rotation, scale);
+    
+    // Apply to the specific group
+    applyDecomposedTransform(group, translation, rotation);
+    
+    // Rebuild transformation matrices
+    buildTransformationMatrices();
+}
+
+void TransformManager::setGroupTransformMatrix(SubGroupType group, const glm::mat4& transform)
+{
+    // Decompose the transformation matrix
+    glm::vec3 translation, rotation, scale;
+    decomposeTransformMatrix(transform, translation, rotation, scale);
+    
+    // Apply to the specific group
+    applyDecomposedTransform(group, translation, rotation);
+    
+    // Rebuild transformation matrices
+    buildTransformationMatrices();
+}
+
+void TransformManager::decomposeTransformMatrix(const glm::mat4& transform, 
+                                              glm::vec3& translation, 
+                                              glm::vec3& rotation, 
+                                              glm::vec3& scale)
+{
+    translation = extractTranslation(transform);
+    rotation = extractRotation(transform);
+    scale = extractScale(transform);
+}
+
+void TransformManager::applyDecomposedTransform(SubGroupType group, 
+                                              const glm::vec3& translation, 
+                                              const glm::vec3& rotation)
+{
+    switch (group) {
+        case SubGroupType::TAG:
+            tagTranslationX = translation.x;
+            tagTranslationY = translation.y;
+            tagTranslationZ = translation.z;
+            tagRotationX = rotation.x;
+            tagRotationY = rotation.y;
+            tagRotationZ = rotation.z;
+            enableTag = true;
+            break;
+            
+        case SubGroupType::TBG:
+            tbgTranslationX = translation.x;
+            tbgTranslationY = translation.y;
+            tbgTranslationZ = translation.z;
+            tbgRotationX = rotation.x;
+            tbgRotationY = rotation.y;
+            tbgRotationZ = rotation.z;
+            enableTbg = true;
+            break;
+            
+        case SubGroupType::TCG:
+            tcgTranslationX = translation.x;
+            tcgTranslationY = translation.y;
+            tcgTranslationZ = translation.z;
+            tcgRotationX = rotation.x;
+            tcgRotationY = rotation.y;
+            tcgRotationZ = rotation.z;
+            enableTcg = true;
+            break;
+            
+        default:
+            std::cerr << "Cannot apply transform to group: " << static_cast<int>(group) << std::endl;
+            break;
+    }
+}
+
+glm::vec3 TransformManager::extractTranslation(const glm::mat4& matrix)
+{
+    return glm::vec3(matrix[3][0], matrix[3][1], matrix[3][2]);
+}
+
+glm::vec3 TransformManager::extractRotation(const glm::mat4& matrix)
+{
+    // Extract rotation angles from rotation matrix
+    // This is a simplified extraction - you might need more robust extraction
+    // depending on your specific requirements
+    
+    glm::mat3 rotMatrix = glm::mat3(matrix);
+    
+    // Normalize the rotation matrix (remove scaling)
+    glm::vec3 scale = extractScale(matrix);
+    rotMatrix[0] /= scale.x;
+    rotMatrix[1] /= scale.y;
+    rotMatrix[2] /= scale.z;
+    
+    // Extract Euler angles (XYZ order)
+    float rotX, rotY, rotZ;
+    
+    rotY = asin(-rotMatrix[2][0]);
+    
+    if (cos(rotY) > 0.0001f) {
+        rotX = atan2(rotMatrix[2][1], rotMatrix[2][2]);
+        rotZ = atan2(rotMatrix[1][0], rotMatrix[0][0]);
+    } else {
+        rotX = atan2(-rotMatrix[1][2], rotMatrix[1][1]);
+        rotZ = 0.0f;
+    }
+    
+    return glm::vec3(rotX, rotY, rotZ);
+}
+
+glm::vec3 TransformManager::extractScale(const glm::mat4& matrix)
+{
+    glm::vec3 scale;
+    scale.x = glm::length(glm::vec3(matrix[0]));
+    scale.y = glm::length(glm::vec3(matrix[1]));
+    scale.z = glm::length(glm::vec3(matrix[2]));
+    return scale;
+}

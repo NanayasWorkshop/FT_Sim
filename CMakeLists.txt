@@ -39,6 +39,7 @@ set(SOURCES
     src/Render.cpp
     src/Transform.cpp
     src/CapacitanceCalculator.cpp
+    src/BulkCapacitanceProcessor.cpp
 )
 
 # Create executable

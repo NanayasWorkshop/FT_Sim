@@ -8,19 +8,21 @@
 #include "ModelManager.h"
 #include "Render.h"
 #include "Transform.h"
-#include "CapacitanceCalculator.h"  // NEW
+#include "CapacitanceCalculator.h"
+#include "BulkCapacitanceProcessor.h"  // NEW
 
 // Window settings
 const unsigned int WINDOW_WIDTH = 1200;
 const unsigned int WINDOW_HEIGHT = 800;
-const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Group Transformations & Capacitance";
+const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Bulk Capacitance Processing";
 
 // Global objects
 Camera* camera = nullptr;
 ModelManager* modelManager = nullptr;
 Render* renderer = nullptr;
 TransformManager* transformManager = nullptr;
-CapacitanceCalculator* capacitanceCalculator = nullptr;  // NEW
+CapacitanceCalculator* capacitanceCalculator = nullptr;
+BulkCapacitanceProcessor* bulkProcessor = nullptr;  // NEW
 
 // Input state
 bool wireframeMode = false;
@@ -34,6 +36,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void processInput(GLFWwindow* window);
+bool runBulkCapacitanceProcessing();
 
 int main()
 {
@@ -86,7 +89,8 @@ int main()
         renderer = new Render();
         modelManager = new ModelManager();
         transformManager = new TransformManager();
-        capacitanceCalculator = new CapacitanceCalculator();  // NEW
+        capacitanceCalculator = new CapacitanceCalculator();
+        bulkProcessor = new BulkCapacitanceProcessor();  // NEW
 
         // Load all OBJ models
         if (!modelManager->loadAllModels("models/")) {
@@ -117,13 +121,19 @@ int main()
         std::cout << "- Mouse drag: Rotate camera" << std::endl;
         std::cout << "- Mouse wheel: Zoom in/out" << std::endl;
         std::cout << "- SPACE: Toggle wireframe/solid mode" << std::endl;
-        std::cout << "- C: Calculate capacitance" << std::endl;  // NEW
+        std::cout << "- C: Calculate single capacitance" << std::endl;
+        std::cout << "- B: Run bulk capacitance processing from CSV files" << std::endl;  // NEW
         std::cout << "- ESC: Exit" << std::endl;
 
-        // Calculate initial capacitance
-        std::cout << "\nCalculating initial capacitance..." << std::endl;
-        std::vector<CapacitanceResult> results = capacitanceCalculator->calculateCapacitances();
-        capacitanceCalculator->printResults(results);
+        // Run bulk capacitance processing immediately
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "STARTING BULK CAPACITANCE PROCESSING" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+        
+        if (!runBulkCapacitanceProcessing()) {
+            std::cerr << "Bulk capacitance processing failed" << std::endl;
+            return -1;
+        }
 
     } catch (const std::exception& e) {
         std::cerr << "Initialization error: " << e.what() << std::endl;
@@ -156,10 +166,28 @@ int main()
     delete modelManager;
     delete renderer;
     delete transformManager;
-    delete capacitanceCalculator;  // NEW
+    delete capacitanceCalculator;
+    delete bulkProcessor;  // NEW
 
     glfwTerminate();
     return 0;
+}
+
+bool runBulkCapacitanceProcessing()
+{
+    // Run bulk capacitance processing with CSV files
+    std::string csvDirectory = "csv_data";  // Directory containing TAG.csv, TBG.csv, TCG.csv
+    
+    if (!bulkProcessor->processCSVFiles(csvDirectory, *capacitanceCalculator, *transformManager)) {
+        std::cerr << "Bulk processing failed" << std::endl;
+        return false;
+    }
+    
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "BULK CAPACITANCE PROCESSING COMPLETED" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+    
+    return true;
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -203,12 +231,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 wireframeMode = !wireframeMode;
                 std::cout << "Wireframe mode: " << (wireframeMode ? "ON" : "OFF") << std::endl;
                 break;
-            case GLFW_KEY_C:  // NEW: Calculate capacitance
+            case GLFW_KEY_C:  // Single capacitance calculation
                 if (capacitanceCalculator) {
-                    std::cout << "\nRecalculating capacitance..." << std::endl;
+                    std::cout << "\nCalculating single capacitance..." << std::endl;
                     std::vector<CapacitanceResult> results = capacitanceCalculator->calculateCapacitances();
                     capacitanceCalculator->printResults(results);
                 }
+                break;
+            case GLFW_KEY_B:  // NEW: Bulk capacitance processing
+                std::cout << "\nStarting bulk capacitance processing..." << std::endl;
+                runBulkCapacitanceProcessing();
                 break;
         }
     }
