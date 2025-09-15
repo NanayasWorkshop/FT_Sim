@@ -289,6 +289,9 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
             transformManager.applyCalculatedTransform("TCG", tcgTransform);
         }
         
+        // Refresh geometry with new transforms
+        capacitanceCalculator.refreshGeometry();
+        
         // Calculate capacitance for this configuration
         std::vector<CapacitanceResult> results = capacitanceCalculator.calculateCapacitances();
         allResults.push_back(results);

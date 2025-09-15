@@ -56,6 +56,32 @@ bool CapacitanceCalculator::initialize(const std::vector<Model>& models, Transfo
     return true;
 }
 
+void CapacitanceCalculator::refreshGeometry()
+{
+    // Release existing scenes
+    for (auto& pair : scenes) {
+        if (pair.second) {
+            rtcReleaseScene(pair.second);
+        }
+    }
+    scenes.clear();
+    
+    // Clear existing triangle data
+    positiveTriangles.clear();
+    
+    // Re-extract geometry with current transformations
+    if (!extractTransformedGeometry()) {
+        std::cerr << "Failed to re-extract transformed geometry" << std::endl;
+        return;
+    }
+    
+    // Recreate Embree scenes
+    if (!createEmbreeScenes()) {
+        std::cerr << "Failed to recreate Embree scenes" << std::endl;
+        return;
+    }
+}
+
 std::vector<CapacitanceResult> CapacitanceCalculator::calculateCapacitances()
 {
     std::vector<CapacitanceResult> results;

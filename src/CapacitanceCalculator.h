@@ -49,6 +49,9 @@ public:
     // Print results in formatted way
     void printResults(const std::vector<CapacitanceResult>& results) const;
 
+    // Refresh geometry with current transformations
+    void refreshGeometry();
+
     // Cleanup resources
     void cleanup();
 
