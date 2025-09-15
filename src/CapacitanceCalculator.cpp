@@ -51,7 +51,6 @@ bool CapacitanceCalculator::initialize(const std::vector<Model>& models, Transfo
     }
     
     std::cout << "CapacitanceCalculator initialized successfully" << std::endl;
-    printModelInfo();
     
     return true;
 }
@@ -193,7 +192,6 @@ bool CapacitanceCalculator::setupEmbreeDevice()
         std::cerr << "Embree error " << error << ": " << str << std::endl;
     }, nullptr);
     
-    std::cout << "Embree device created successfully" << std::endl;
     return true;
 }
 
@@ -206,17 +204,10 @@ void CapacitanceCalculator::setupModelPairings()
     modelPairings["B2_model"] = "stationary_negative_B";
     modelPairings["C1_model"] = "stationary_negative_C";
     modelPairings["C2_model"] = "stationary_negative_C";
-    
-    std::cout << "Model pairings configured:" << std::endl;
-    for (const auto& pair : modelPairings) {
-        std::cout << "  " << pair.first << " -> " << pair.second << std::endl;
-    }
 }
 
 bool CapacitanceCalculator::extractTransformedGeometry()
 {
-    std::cout << "Extracting transformed geometry..." << std::endl;
-    
     // Extract positive model triangles
     for (const std::string& modelName : POSITIVE_MODEL_NAMES) {
         // Find the model
@@ -234,8 +225,6 @@ bool CapacitanceCalculator::extractTransformedGeometry()
         // Extract triangles
         std::vector<Triangle> triangles = extractTrianglesFromModel(*modelIt, transform);
         positiveTriangles[modelName] = triangles;
-        
-        std::cout << "  " << modelName << ": " << triangles.size() << " triangles" << std::endl;
     }
     
     return true;
@@ -243,8 +232,6 @@ bool CapacitanceCalculator::extractTransformedGeometry()
 
 bool CapacitanceCalculator::createEmbreeScenes()
 {
-    std::cout << "Creating Embree scenes..." << std::endl;
-    
     for (const auto& pairing : modelPairings) {
         const std::string& positiveModel = pairing.first;
         const std::string& negativeModel = pairing.second;
@@ -279,7 +266,6 @@ bool CapacitanceCalculator::createEmbreeScenes()
         rtcCommitScene(scene);
         
         scenes[positiveModel] = scene;
-        std::cout << "  Created scene for " << positiveModel << " -> " << negativeModel << std::endl;
     }
     
     return true;

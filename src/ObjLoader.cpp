@@ -28,12 +28,7 @@ bool ObjLoader::loadOBJ(const std::string& filePath,
     // Load the OBJ file
     bool success = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filePath.c_str());
 
-    // Handle warnings
-    if (!warn.empty()) {
-        std::cout << "Warning loading " << filePath << ": " << warn << std::endl;
-    }
-
-    // Handle errors
+    // Handle errors (but suppress warnings about missing material files)
     if (!err.empty()) {
         lastError = "Error loading " + filePath + ": " + err;
         std::cerr << lastError << std::endl;
@@ -50,11 +45,6 @@ bool ObjLoader::loadOBJ(const std::string& filePath,
         return false;
     }
 
-    // Process the loaded data
-    std::cout << "Loading " << filePath << "..." << std::endl;
-    std::cout << "  Vertices: " << attrib.vertices.size() / 3 << std::endl;
-    std::cout << "  Shapes: " << shapes.size() << std::endl;
-
     // Process all shapes into a single mesh
     size_t indexOffset = 0;
     
@@ -67,7 +57,6 @@ bool ObjLoader::loadOBJ(const std::string& filePath,
             
             // We only handle triangulated faces (should be 3 vertices per face)
             if (fv != 3) {
-                std::cout << "Warning: Non-triangular face found (vertices: " << fv << "), skipping..." << std::endl;
                 indexOffset += fv;
                 continue;
             }
@@ -96,8 +85,6 @@ bool ObjLoader::loadOBJ(const std::string& filePath,
     }
     
     vertexCount = vertices.size() / 3;
-    
-    std::cout << "  Processed: " << vertexCount << " vertices, " << triangleCount << " triangles" << std::endl;
     
     if (vertices.empty()) {
         lastError = "No vertex data found in " + filePath;

@@ -31,8 +31,6 @@ bool ModelManager::loadAllModels(const std::string& directory)
         return false;
     }
     
-    std::cout << "Found " << objFiles.size() << " .obj files" << std::endl;
-    
     // Load each OBJ file with specific positioning and colors
     bool allLoaded = true;
     
@@ -101,9 +99,6 @@ bool ModelManager::loadAllModels(const std::string& directory)
             sphereModel.vertexCount = sphereModel.vertices.size() / 3;
             sphereModel.triangleCount = sphereModel.indices.size() / 3;
             models.push_back(sphereModel);
-            
-            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
-                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
         }
     }
     
@@ -126,9 +121,6 @@ bool ModelManager::loadAllModels(const std::string& directory)
             sphereModel.vertexCount = sphereModel.vertices.size() / 3;
             sphereModel.triangleCount = sphereModel.indices.size() / 3;
             models.push_back(sphereModel);
-            
-            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
-                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
         }
     }
     
@@ -151,14 +143,10 @@ bool ModelManager::loadAllModels(const std::string& directory)
             sphereModel.vertexCount = sphereModel.vertices.size() / 3;
             sphereModel.triangleCount = sphereModel.indices.size() / 3;
             models.push_back(sphereModel);
-            
-            std::cout << "Generated " << sphereName << " sphere with " << sphereModel.vertexCount 
-                      << " vertices and " << sphereModel.triangleCount << " triangles" << std::endl;
         }
     }
     
     std::cout << "Successfully loaded " << models.size() << " models" << std::endl;
-    printModelStats();
     
     return allLoaded && !models.empty();
 }
@@ -187,12 +175,6 @@ bool ModelManager::loadModelAtPosition(const std::string& filePath, const std::s
     
     // Add to models list
     models.push_back(model);
-    
-    std::cout << "Loaded model '" << modelName << "' at position (" 
-              << position.x << ", " << position.y << ", " << position.z 
-              << ") with color (" << color.r << ", " << color.g << ", " << color.b
-              << ") - " << model.vertexCount << " vertices and " 
-              << model.triangleCount << " triangles" << std::endl;
     
     return true;
 }
@@ -243,21 +225,13 @@ bool ModelManager::generateSphere(float radius, int subdivisions, std::vector<fl
 
 void ModelManager::assignModelGroups(TransformManager& transformManager)
 {
-    std::cout << "Assigning models to hierarchical transformation groups..." << std::endl;
-    
     for (Model& model : models) {
         // Assign sub-group
         model.subGroupType = transformManager.getModelSubGroup(model.name);
         
         // Assign parent group based on sub-group
         model.parentGroupType = transformManager.getSubGroupParent(model.subGroupType);
-        
-        std::cout << "Model '" << model.name << "' assigned to:" << std::endl;
-        std::cout << "  Sub-group: " << transformManager.getSubGroupName(model.subGroupType) << std::endl;
-        std::cout << "  Parent group: " << transformManager.getParentGroupName(model.parentGroupType) << std::endl;
     }
-    
-    std::cout << "Hierarchical group assignment complete." << std::endl;
 }
 
 const std::vector<Model>& ModelManager::getModels() const
@@ -288,22 +262,13 @@ void ModelManager::printModelStats() const
     size_t totalVertices = 0;
     size_t totalTriangles = 0;
     
-    std::cout << "\n=== Model Statistics ===" << std::endl;
     for (size_t i = 0; i < models.size(); i++) {
         const Model& model = models[i];
-        std::cout << i + 1 << ". " << model.name 
-                  << " - Vertices: " << model.vertexCount 
-                  << ", Triangles: " << model.triangleCount
-                  << ", Color: (" << model.color.r << ", " << model.color.g << ", " << model.color.b << ")"
-                  << ", Position: (" << model.position.x << ", " << model.position.y << ", " << model.position.z << ")"
-                  << std::endl;
-        
         totalVertices += model.vertexCount;
         totalTriangles += model.triangleCount;
     }
     
-    std::cout << "Total: " << totalVertices << " vertices, " << totalTriangles << " triangles" << std::endl;
-    std::cout << "========================\n" << std::endl;
+    std::cout << "Total: " << totalVertices << " vertices, " << totalTriangles << " triangles across " << models.size() << " models" << std::endl;
 }
 
 void ModelManager::clear()
