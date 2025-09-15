@@ -283,8 +283,8 @@ void TransformManager::initializeDefaultTransforms()
     subGroupTransforms[SubGroupType::Individual] = createIdentityTransform();
     
     // Initialize boolean flags
-    enablePositiv = true;  // Start with all groups disabled
-    enableTag = false;
+    enablePositiv = false;  // Start with all groups disabled
+    enableTag = true;
     enableTbg = false;
     enableTcg = false;
     
@@ -301,7 +301,7 @@ void TransformManager::initializeDefaultTransforms()
     tagRotationX = 0.0f;        // radians
     tagRotationY = 0.0f;        // radians
     tagRotationZ = 0.0f;        // radians
-    tagTranslationX = 0.0f;     // mm
+    tagTranslationX = 0.20f;     // mm
     tagTranslationY = 0.0f;     // mm
     tagTranslationZ = 0.0f;     // mm
     
@@ -328,7 +328,7 @@ void TransformManager::initializeSampleTransforms()
     
     // Positiv group
     positivRotationX = 0.0f;    // radians
-    positivRotationY = 0.30f;    // radians
+    positivRotationY = 0.00f;    // radians
     positivRotationZ = 0.0f;    // radians
     positivTranslationX = 0.0f; // mm
     positivTranslationY = 0.0f; // mm
@@ -336,8 +336,8 @@ void TransformManager::initializeSampleTransforms()
     
     // TAG group
     tagRotationX = 0.0f;        // radians
-    tagRotationY = 0.20f;        // radians
-    tagRotationZ = 0.20f;        // radians
+    tagRotationY = 0.0f;        // radians
+    tagRotationZ = 0.0f;        // radians
     tagTranslationX = 0.0f;     // mm
     tagTranslationY = 0.0f;     // mm
     tagTranslationZ = 0.0f;     // mm

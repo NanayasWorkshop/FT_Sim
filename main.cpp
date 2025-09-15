@@ -8,17 +8,19 @@
 #include "ModelManager.h"
 #include "Render.h"
 #include "Transform.h"
+#include "CapacitanceCalculator.h"  // NEW
 
 // Window settings
 const unsigned int WINDOW_WIDTH = 1200;
 const unsigned int WINDOW_HEIGHT = 800;
-const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Group Transformations";
+const char* WINDOW_TITLE = "OBJ Viewer - FT_Sim with Group Transformations & Capacitance";
 
 // Global objects
 Camera* camera = nullptr;
 ModelManager* modelManager = nullptr;
 Render* renderer = nullptr;
 TransformManager* transformManager = nullptr;
+CapacitanceCalculator* capacitanceCalculator = nullptr;  // NEW
 
 // Input state
 bool wireframeMode = false;
@@ -84,6 +86,7 @@ int main()
         renderer = new Render();
         modelManager = new ModelManager();
         transformManager = new TransformManager();
+        capacitanceCalculator = new CapacitanceCalculator();  // NEW
 
         // Load all OBJ models
         if (!modelManager->loadAllModels("models/")) {
@@ -100,6 +103,12 @@ int main()
             return -1;
         }
 
+        // Initialize capacitance calculator
+        if (!capacitanceCalculator->initialize(modelManager->getModels(), *transformManager)) {
+            std::cerr << "Failed to initialize capacitance calculator" << std::endl;
+            return -1;
+        }
+
         // Print transformation info
         transformManager->printGroupTransforms();
 
@@ -108,12 +117,18 @@ int main()
         std::cout << "- Mouse drag: Rotate camera" << std::endl;
         std::cout << "- Mouse wheel: Zoom in/out" << std::endl;
         std::cout << "- SPACE: Toggle wireframe/solid mode" << std::endl;
+        std::cout << "- C: Calculate capacitance" << std::endl;  // NEW
         std::cout << "- ESC: Exit" << std::endl;
         std::cout << "\nGroup Transformations Applied:" << std::endl;
         std::cout << "- TAG (A1, A2): 15° X-axis rotation + 2mm Y translation" << std::endl;
         std::cout << "- TBG (B1, B2): 15° Y-axis rotation + 3mm Z translation" << std::endl;
         std::cout << "- TCG (C1, C2): 15° Z-axis rotation + 2mm X translation" << std::endl;
         std::cout << "- Negativ: No transformation (identity)" << std::endl;
+
+        // Calculate initial capacitance
+        std::cout << "\nCalculating initial capacitance..." << std::endl;
+        std::vector<CapacitanceResult> results = capacitanceCalculator->calculateCapacitances();
+        capacitanceCalculator->printResults(results);
 
     } catch (const std::exception& e) {
         std::cerr << "Initialization error: " << e.what() << std::endl;
@@ -146,6 +161,7 @@ int main()
     delete modelManager;
     delete renderer;
     delete transformManager;
+    delete capacitanceCalculator;  // NEW
 
     glfwTerminate();
     return 0;
@@ -191,6 +207,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             case GLFW_KEY_SPACE:
                 wireframeMode = !wireframeMode;
                 std::cout << "Wireframe mode: " << (wireframeMode ? "ON" : "OFF") << std::endl;
+                break;
+            case GLFW_KEY_C:  // NEW: Calculate capacitance
+                if (capacitanceCalculator) {
+                    std::cout << "\nRecalculating capacitance..." << std::endl;
+                    std::vector<CapacitanceResult> results = capacitanceCalculator->calculateCapacitances();
+                    capacitanceCalculator->printResults(results);
+                }
                 break;
         }
     }

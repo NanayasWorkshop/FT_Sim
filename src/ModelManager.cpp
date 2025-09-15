@@ -93,8 +93,8 @@ bool ModelManager::loadAllModels(const std::string& directory)
         sphereModel.subGroupType = SubGroupType::Individual;
         sphereModel.parentGroupType = ParentGroupType::Positiv;
         
-        // Generate sphere geometry (4mm diameter = 2mm radius)
-        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+        // Generate sphere geometry (2mm diameter = 1mm radius)
+        if (!generateSphere(1.0f, 16, sphereModel.vertices, sphereModel.indices)) {
             std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
             allLoaded = false;
         } else {
@@ -118,8 +118,8 @@ bool ModelManager::loadAllModels(const std::string& directory)
         sphereModel.subGroupType = SubGroupType::Individual;
         sphereModel.parentGroupType = ParentGroupType::Positiv;
         
-        // Generate sphere geometry (4mm diameter = 2mm radius)
-        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+        // Generate sphere geometry (2mm diameter = 2mm radius)
+        if (!generateSphere(1.0f, 16, sphereModel.vertices, sphereModel.indices)) {
             std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
             allLoaded = false;
         } else {
@@ -143,8 +143,8 @@ bool ModelManager::loadAllModels(const std::string& directory)
         sphereModel.subGroupType = SubGroupType::Individual;
         sphereModel.parentGroupType = ParentGroupType::Positiv;
         
-        // Generate sphere geometry (4mm diameter = 2mm radius)
-        if (!generateSphere(2.0f, 16, sphereModel.vertices, sphereModel.indices)) {
+        // Generate sphere geometry (2mm diameter = 2mm radius)
+        if (!generateSphere(1.0f, 16, sphereModel.vertices, sphereModel.indices)) {
             std::cerr << "Failed to generate " << sphereName << " sphere" << std::endl;
             allLoaded = false;
         } else {
