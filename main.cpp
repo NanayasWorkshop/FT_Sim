@@ -119,11 +119,6 @@ int main()
         std::cout << "- SPACE: Toggle wireframe/solid mode" << std::endl;
         std::cout << "- C: Calculate capacitance" << std::endl;  // NEW
         std::cout << "- ESC: Exit" << std::endl;
-        std::cout << "\nGroup Transformations Applied:" << std::endl;
-        std::cout << "- TAG (A1, A2): 15° X-axis rotation + 2mm Y translation" << std::endl;
-        std::cout << "- TBG (B1, B2): 15° Y-axis rotation + 3mm Z translation" << std::endl;
-        std::cout << "- TCG (C1, C2): 15° Z-axis rotation + 2mm X translation" << std::endl;
-        std::cout << "- Negativ: No transformation (identity)" << std::endl;
 
         // Calculate initial capacitance
         std::cout << "\nCalculating initial capacitance..." << std::endl;

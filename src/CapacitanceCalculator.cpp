@@ -4,6 +4,9 @@
 #include <cmath>
 #include <algorithm>
 
+// Constants
+constexpr double FARADS_TO_PICOFARADS = 1e12;
+
 // Static member initialization
 const std::vector<std::string> CapacitanceCalculator::POSITIVE_MODEL_NAMES = {
     "A1_model", "A2_model", "B1_model", "B2_model", "C1_model", "C2_model"
@@ -63,8 +66,11 @@ std::vector<CapacitanceResult> CapacitanceCalculator::calculateCapacitances()
         CapacitanceResult result = calculateSingleCapacitance(modelName);
         results.push_back(result);
         
+        // Convert to picofarads for display
+        double capacitancePF = result.capacitance * FARADS_TO_PICOFARADS;
+        
         std::cout << "Model " << modelName << ": " << std::scientific << std::setprecision(3) 
-                  << result.capacitance << " F (" << result.hitCount << "/" 
+                  << capacitancePF << " pF (" << result.hitCount << "/" 
                   << result.triangleCount << " hits)" << std::endl;
     }
     
@@ -129,8 +135,11 @@ void CapacitanceCalculator::printResults(const std::vector<CapacitanceResult>& r
     double totalCapacitance = 0.0;
     
     for (const auto& result : results) {
+        // Convert to picofarads for display
+        double capacitancePF = result.capacitance * FARADS_TO_PICOFARADS;
+        
         std::cout << std::left << std::setw(12) << result.modelName << ": ";
-        std::cout << std::scientific << std::setprecision(4) << std::setw(12) << result.capacitance << " F";
+        std::cout << std::fixed << std::setprecision(5) << std::setw(12) << capacitancePF << " pF";
         std::cout << " (Hits: " << std::setw(4) << result.hitCount << "/" << std::setw(4) << result.triangleCount << ")";
         
         if (result.triangleCount > 0) {
@@ -142,9 +151,12 @@ void CapacitanceCalculator::printResults(const std::vector<CapacitanceResult>& r
         totalCapacitance += result.capacitance;
     }
     
+    // Convert total to picofarads for display
+    double totalCapacitancePF = totalCapacitance * FARADS_TO_PICOFARADS;
+    
     std::cout << std::string(80, '-') << std::endl;
     std::cout << std::left << std::setw(12) << "TOTAL" << ": ";
-    std::cout << std::scientific << std::setprecision(4) << totalCapacitance << " F" << std::endl;
+    std::cout << std::fixed << std::setprecision(5) << totalCapacitancePF << " pF" << std::endl;
     std::cout << std::string(80, '=') << std::endl;
 }
 
