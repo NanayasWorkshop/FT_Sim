@@ -22,25 +22,21 @@ bool BulkCapacitanceProcessor::initializeStepMode(const std::string& csvDirector
 {
     std::cout << "Initializing step mode with CSV directory: " << csvDirectory << std::endl;
     
-    // Load all CSV files
-    std::string tagPath = csvDirectory + "/TAG.csv";
-    std::string tbgPath = csvDirectory + "/TBG.csv";
-    std::string tcgPath = csvDirectory + "/TCG.csv";
-    
-    if (!loadCSVFile(tagPath, tagData)) {
-        std::cerr << "Failed to load TAG.csv" << std::endl;
+    // Load all individual sphere CSV files and combine into group data
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TAG", tagData)) {
+        std::cerr << "Failed to load TAG group files" << std::endl;
         return false;
     }
     tagData.groupName = "TAG";
     
-    if (!loadCSVFile(tbgPath, tbgData)) {
-        std::cerr << "Failed to load TBG.csv" << std::endl;
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TBG", tbgData)) {
+        std::cerr << "Failed to load TBG group files" << std::endl;
         return false;
     }
     tbgData.groupName = "TBG";
     
-    if (!loadCSVFile(tcgPath, tcgData)) {
-        std::cerr << "Failed to load TCG.csv" << std::endl;
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TCG", tcgData)) {
+        std::cerr << "Failed to load TCG group files" << std::endl;
         return false;
     }
     tcgData.groupName = "TCG";
@@ -182,25 +178,21 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
 {
     std::cout << "Starting bulk capacitance processing..." << std::endl;
     
-    // Load all CSV files
-    std::string tagPath = csvDirectory + "/TAG.csv";
-    std::string tbgPath = csvDirectory + "/TBG.csv";
-    std::string tcgPath = csvDirectory + "/TCG.csv";
-    
-    if (!loadCSVFile(tagPath, tagData)) {
-        std::cerr << "Failed to load TAG.csv" << std::endl;
+    // Load all individual sphere CSV files and combine into group data
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TAG", tagData)) {
+        std::cerr << "Failed to load TAG group files" << std::endl;
         return false;
     }
     tagData.groupName = "TAG";
     
-    if (!loadCSVFile(tbgPath, tbgData)) {
-        std::cerr << "Failed to load TBG.csv" << std::endl;
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TBG", tbgData)) {
+        std::cerr << "Failed to load TBG group files" << std::endl;
         return false;
     }
     tbgData.groupName = "TBG";
     
-    if (!loadCSVFile(tcgPath, tcgData)) {
-        std::cerr << "Failed to load TCG.csv" << std::endl;
+    if (!loadGroupFromIndividualFiles(csvDirectory, "TCG", tcgData)) {
+        std::cerr << "Failed to load TCG group files" << std::endl;
         return false;
     }
     tcgData.groupName = "TCG";
@@ -283,6 +275,116 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
     
     std::cout << "Bulk processing complete. Results saved to: " << outputPath << std::endl;
     return true;
+}
+
+bool BulkCapacitanceProcessor::loadGroupFromIndividualFiles(const std::string& csvDirectory, const std::string& groupName, GroupCSVData& groupData)
+{
+    // Map group names to file prefixes
+    std::string prefix;
+    if (groupName == "TAG") {
+        prefix = "A";
+    } else if (groupName == "TBG") {
+        prefix = "B";
+    } else if (groupName == "TCG") {
+        prefix = "C";
+    } else {
+        std::cerr << "Unknown group name: " << groupName << std::endl;
+        return false;
+    }
+    
+    // Load individual sphere files
+    std::vector<std::vector<glm::vec3>> sphereData(3); // A, B, C spheres
+    
+    // Load sphere A
+    std::string fileA = csvDirectory + "/" + prefix + "A1Def.csv";
+    if (!loadIndividualSphereFile(fileA, sphereData[0])) {
+        std::cerr << "Failed to load " << fileA << std::endl;
+        return false;
+    }
+    
+    // Load sphere B
+    std::string fileB = csvDirectory + "/" + prefix + "B1Def.csv";
+    if (!loadIndividualSphereFile(fileB, sphereData[1])) {
+        std::cerr << "Failed to load " << fileB << std::endl;
+        return false;
+    }
+    
+    // Load sphere C
+    std::string fileC = csvDirectory + "/" + prefix + "C1Def.csv";
+    if (!loadIndividualSphereFile(fileC, sphereData[2])) {
+        std::cerr << "Failed to load " << fileC << std::endl;
+        return false;
+    }
+    
+    // Find minimum row count
+    size_t minRows = std::min({sphereData[0].size(), sphereData[1].size(), sphereData[2].size()});
+    
+    // Combine into group data
+    groupData.rows.clear();
+    for (size_t row = 0; row < minRows; row++) {
+        GroupRowData rowData;
+        rowData.offsets.A = sphereData[0][row];
+        rowData.offsets.B = sphereData[1][row];
+        rowData.offsets.C = sphereData[2][row];
+        groupData.rows.push_back(rowData);
+    }
+    
+    std::cout << "Loaded " << groupName << " group: " << minRows << " rows from individual files" << std::endl;
+    
+    return !groupData.rows.empty();
+}
+
+bool BulkCapacitanceProcessor::loadIndividualSphereFile(const std::string& filePath, std::vector<glm::vec3>& sphereOffsets)
+{
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Cannot open file: " << filePath << std::endl;
+        return false;
+    }
+    
+    std::string line;
+    bool firstLine = true;
+    
+    while (std::getline(file, line)) {
+        line = trim(line);
+        if (line.empty()) continue;
+        
+        // Skip header row
+        if (firstLine) {
+            firstLine = false;
+            continue;
+        }
+        
+        glm::vec3 offset;
+        if (parseIndividualSphereRow(line, offset)) {
+            sphereOffsets.push_back(offset);
+        }
+    }
+    
+    file.close();
+    return !sphereOffsets.empty();
+}
+
+bool BulkCapacitanceProcessor::parseIndividualSphereRow(const std::string& line, glm::vec3& offset)
+{
+    std::vector<std::string> tokens = splitCSVLine(line);
+    
+    if (tokens.size() < 3) {
+        std::cerr << "Invalid CSV row: expected 3 columns (UX,UY,UZ), got " << tokens.size() << std::endl;
+        return false;
+    }
+    
+    try {
+        // Parse UX, UY, UZ and convert from meters to mm
+        offset.x = std::stof(tokens[0]) * 1000.0f;
+        offset.y = std::stof(tokens[1]) * 1000.0f;
+        offset.z = std::stof(tokens[2]) * 1000.0f;
+        
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "Error parsing CSV row: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 bool BulkCapacitanceProcessor::loadCSVFile(const std::string& filePath, GroupCSVData& groupData)

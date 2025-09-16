@@ -48,7 +48,12 @@ public:
     void printCurrentRowInfo() const;
 
 private:
-    // CSV loading
+    // NEW: Individual file loading methods
+    bool loadGroupFromIndividualFiles(const std::string& csvDirectory, const std::string& groupName, GroupCSVData& groupData);
+    bool loadIndividualSphereFile(const std::string& filePath, std::vector<glm::vec3>& sphereOffsets);
+    bool parseIndividualSphereRow(const std::string& line, glm::vec3& offset);
+
+    // Original CSV loading methods (kept for compatibility)
     bool loadCSVFile(const std::string& filePath, GroupCSVData& groupData);
     bool parseCSVRow(const std::string& line, GroupRowData& rowData);
     std::vector<std::string> splitCSVLine(const std::string& line);
