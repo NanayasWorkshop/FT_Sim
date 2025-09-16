@@ -58,17 +58,23 @@ public:
     // Debug info
     void printGroupTransforms() const;
 
-    // NEW: Methods for applying calculated transformation matrices
+    // NEW: Direct UVW→IJK transformation matrix application
+    void setCalculatedTransform(const std::string& groupName, const glm::mat4& transform);
+    bool hasCalculatedTransform(const std::string& groupName) const;
+    glm::mat4 getCalculatedTransform(const std::string& groupName) const;
+    void clearCalculatedTransforms();
+    
+    // LEGACY: Keep for backwards compatibility but mark as deprecated
     void applyCalculatedTransform(const std::string& groupName, const glm::mat4& transform);
     void setGroupTransformMatrix(SubGroupType group, const glm::mat4& transform);
     
-    // NEW: Matrix decomposition helpers
+    // Matrix decomposition helpers (kept for other uses)
     void decomposeTransformMatrix(const glm::mat4& transform, 
                                  glm::vec3& translation, 
                                  glm::vec3& rotation, 
                                  glm::vec3& scale);
     
-    // NEW: Apply decomposed transformation to specific group
+    // Apply decomposed transformation to specific group (kept for manual adjustments)
     void applyDecomposedTransform(SubGroupType group, 
                                  const glm::vec3& translation, 
                                  const glm::vec3& rotation);
@@ -78,8 +84,11 @@ public:
     bool enableTag;
     bool enableTbg;
     bool enableTcg;
+    
+    // NEW: Enable calculated transforms (UVW→IJK matrices)
+    bool enableCalculatedTransforms;
 
-    // Separated transformation matrices
+    // Separated transformation matrices (for manual transforms)
     glm::mat4 positivRotation;
     glm::mat4 positivTranslation;
     glm::mat4 tagRotation;
@@ -125,14 +134,20 @@ private:
     std::map<ParentGroupType, glm::mat4> parentGroupTransforms;
     std::map<SubGroupType, glm::mat4> subGroupTransforms;
     
+    // NEW: Storage for calculated UVW→IJK transformation matrices
+    std::map<std::string, glm::mat4> calculatedTransforms; // groupName -> transform matrix
+    
     // Helper methods
     glm::mat4 createIdentityTransform() const;
     glm::mat4 createInversePositionMatrix(const glm::vec3& position) const;
 
-    // NEW: Helper methods for matrix decomposition
+    // Helper methods for matrix decomposition
     glm::vec3 extractTranslation(const glm::mat4& matrix);
     glm::vec3 extractRotation(const glm::mat4& matrix);
     glm::vec3 extractScale(const glm::mat4& matrix);
+    
+    // Helper method to get group name from model name
+    std::string getGroupNameFromModel(const std::string& modelName) const;
 };
 
 #endif

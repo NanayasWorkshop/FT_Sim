@@ -99,45 +99,117 @@ glm::mat4 TransformManager::getCombinedTransform(const std::string& modelName) c
     // Step 1: Get the model's final world position
     glm::vec3 modelWorldPos = getModelWorldPosition(modelName);
     
-    // Step 2: Start with model positioned in world
-    glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), modelWorldPos);
+    // Step 2: Check if we have a calculated UVW→IJK transform for this group
+    std::string groupName = getGroupNameFromModel(modelName);
     
-    // Step 3: Apply sub-group transformations around the group center
-    if (enableTag && subGroup == SubGroupType::TAG) {
-        // All TAG objects rotate around TAG center (0, 24.85, 0)
-        glm::vec3 tagCenter = glm::vec3(0.0f, 24.85f, 0.0f);
-        finalTransform = glm::translate(glm::mat4(1.0f), tagCenter) * 
-                        tagRotation * tagTranslation * 
-                        glm::translate(glm::mat4(1.0f), -tagCenter) * 
-                        glm::translate(glm::mat4(1.0f), modelWorldPos);
+    if (enableCalculatedTransforms && hasCalculatedTransform(groupName)) {
+        // NEW: Apply calculated UVW→IJK transformation directly
+        glm::mat4 calculatedTransform = getCalculatedTransform(groupName);
+        
+        // Apply the calculated transform to the model's world position
+        glm::mat4 finalTransform = calculatedTransform * glm::translate(glm::mat4(1.0f), modelWorldPos);
+        
+        // Step 3: Apply Positiv group transform if enabled (around world center)
+        if (enablePositiv && parentGroup == ParentGroupType::Positiv) {
+            finalTransform = positivTranslation * positivRotation * finalTransform;
+        }
+        
+        return finalTransform;
     }
-    else if (enableTbg && subGroup == SubGroupType::TBG) {
-        // All TBG objects rotate around TBG center
-        float radius = 24.85f;
-        float angle = -30.0f * 3.14159f / 180.0f;
-        glm::vec3 tbgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
-        finalTransform = glm::translate(glm::mat4(1.0f), tbgCenter) * 
-                        tbgRotation * tbgTranslation * 
-                        glm::translate(glm::mat4(1.0f), -tbgCenter) * 
-                        glm::translate(glm::mat4(1.0f), modelWorldPos);
+    else {
+        // FALLBACK: Use original manual transformation system
+        glm::mat4 finalTransform = glm::translate(glm::mat4(1.0f), modelWorldPos);
+        
+        // Apply sub-group transformations around the group center
+        if (enableTag && subGroup == SubGroupType::TAG) {
+            // All TAG objects rotate around TAG center (0, 24.85, 0)
+            glm::vec3 tagCenter = glm::vec3(0.0f, 24.85f, 0.0f);
+            finalTransform = glm::translate(glm::mat4(1.0f), tagCenter) * 
+                            tagRotation * tagTranslation * 
+                            glm::translate(glm::mat4(1.0f), -tagCenter) * 
+                            glm::translate(glm::mat4(1.0f), modelWorldPos);
+        }
+        else if (enableTbg && subGroup == SubGroupType::TBG) {
+            // All TBG objects rotate around TBG center
+            float radius = 24.85f;
+            float angle = -30.0f * 3.14159f / 180.0f;
+            glm::vec3 tbgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
+            finalTransform = glm::translate(glm::mat4(1.0f), tbgCenter) * 
+                            tbgRotation * tbgTranslation * 
+                            glm::translate(glm::mat4(1.0f), -tbgCenter) * 
+                            glm::translate(glm::mat4(1.0f), modelWorldPos);
+        }
+        else if (enableTcg && subGroup == SubGroupType::TCG) {
+            // All TCG objects rotate around TCG center
+            float radius = 24.85f;
+            float angle = -150.0f * 3.14159f / 180.0f;
+            glm::vec3 tcgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
+            finalTransform = glm::translate(glm::mat4(1.0f), tcgCenter) * 
+                            tcgRotation * tcgTranslation * 
+                            glm::translate(glm::mat4(1.0f), -tcgCenter) * 
+                            glm::translate(glm::mat4(1.0f), modelWorldPos);
+        }
+        
+        // Step 4: Apply Positiv group transform if enabled (around world center)
+        if (enablePositiv && parentGroup == ParentGroupType::Positiv) {
+            finalTransform = positivTranslation * positivRotation * finalTransform;
+        }
+        
+        return finalTransform;
     }
-    else if (enableTcg && subGroup == SubGroupType::TCG) {
-        // All TCG objects rotate around TCG center
-        float radius = 24.85f;
-        float angle = -150.0f * 3.14159f / 180.0f;
-        glm::vec3 tcgCenter = glm::vec3(radius * cos(angle), radius * sin(angle), 0.0f);
-        finalTransform = glm::translate(glm::mat4(1.0f), tcgCenter) * 
-                        tcgRotation * tcgTranslation * 
-                        glm::translate(glm::mat4(1.0f), -tcgCenter) * 
-                        glm::translate(glm::mat4(1.0f), modelWorldPos);
+}
+
+// NEW: Direct UVW→IJK transformation matrix methods
+void TransformManager::setCalculatedTransform(const std::string& groupName, const glm::mat4& transform)
+{
+    calculatedTransforms[groupName] = transform;
+    std::cout << "Stored calculated transform for group: " << groupName << std::endl;
+}
+
+bool TransformManager::hasCalculatedTransform(const std::string& groupName) const
+{
+    return calculatedTransforms.find(groupName) != calculatedTransforms.end();
+}
+
+glm::mat4 TransformManager::getCalculatedTransform(const std::string& groupName) const
+{
+    auto it = calculatedTransforms.find(groupName);
+    if (it != calculatedTransforms.end()) {
+        return it->second;
     }
+    return createIdentityTransform();
+}
+
+void TransformManager::clearCalculatedTransforms()
+{
+    calculatedTransforms.clear();
+    std::cout << "Cleared all calculated transforms" << std::endl;
+}
+
+std::string TransformManager::getGroupNameFromModel(const std::string& modelName) const
+{
+    SubGroupType subGroup = getModelSubGroup(modelName);
     
-    // Step 4: Apply Positiv group transform if enabled (around world center)
-    if (enablePositiv && parentGroup == ParentGroupType::Positiv) {
-        finalTransform = positivTranslation * positivRotation * finalTransform;
+    switch (subGroup) {
+        case SubGroupType::TAG: return "TAG";
+        case SubGroupType::TBG: return "TBG";
+        case SubGroupType::TCG: return "TCG";
+        case SubGroupType::Negativ: return "Negativ";
+        case SubGroupType::Individual: return "Individual";
+        default: return "Unknown";
     }
+}
+
+// LEGACY: Keep original method for backwards compatibility
+void TransformManager::applyCalculatedTransform(const std::string& groupName, const glm::mat4& transform)
+{
+    // NEW: Store the matrix directly instead of decomposing
+    setCalculatedTransform(groupName, transform);
     
-    return finalTransform;
+    // Enable calculated transforms
+    enableCalculatedTransforms = true;
+    
+    std::cout << "Applied calculated transform for group: " << groupName << " (using direct matrix)" << std::endl;
 }
 
 glm::vec3 TransformManager::getModelWorldPosition(const std::string& modelName) const
@@ -284,9 +356,10 @@ void TransformManager::initializeDefaultTransforms()
     
     // Initialize boolean flags
     enablePositiv = false;  // Start with all groups disabled
-    enableTag = true;
-    enableTbg = true;
-    enableTcg = true;
+    enableTag = false;      // Disabled when using calculated transforms
+    enableTbg = false;      // Disabled when using calculated transforms
+    enableTcg = false;      // Disabled when using calculated transforms
+    enableCalculatedTransforms = true; // NEW: Enable calculated transforms by default
     
     // Initialize all transformation values to zero (default state)
     // Positiv group
@@ -301,7 +374,7 @@ void TransformManager::initializeDefaultTransforms()
     tagRotationX = 0.0f;        // radians
     tagRotationY = 0.0f;        // radians
     tagRotationZ = 0.0f;        // radians
-    tagTranslationX = 0.20f;     // mm
+    tagTranslationX = 0.0f;     // mm
     tagTranslationY = 0.0f;     // mm
     tagTranslationZ = 0.0f;     // mm
     
@@ -363,9 +436,10 @@ void TransformManager::initializeSampleTransforms()
     
     std::cout << "Transformation values set:" << std::endl;
     std::cout << "- Positiv: RotX=" << positivRotationX << " rad, TransY=" << positivTranslationY << " mm [" << (enablePositiv ? "ENABLED" : "DISABLED") << "]" << std::endl;
-    std::cout << "- TAG: All zero [" << (enableTag ? "ENABLED" : "DISABLED") << "]" << std::endl;
-    std::cout << "- TBG: All zero [" << (enableTbg ? "ENABLED" : "DISABLED") << "]" << std::endl;
-    std::cout << "- TCG: All zero [" << (enableTcg ? "ENABLED" : "DISABLED") << "]" << std::endl;
+    std::cout << "- Calculated Transforms: [" << (enableCalculatedTransforms ? "ENABLED" : "DISABLED") << "]" << std::endl;
+    std::cout << "- Manual TAG: [" << (enableTag ? "ENABLED" : "DISABLED") << "]" << std::endl;
+    std::cout << "- Manual TBG: [" << (enableTbg ? "ENABLED" : "DISABLED") << "]" << std::endl;
+    std::cout << "- Manual TCG: [" << (enableTcg ? "ENABLED" : "DISABLED") << "]" << std::endl;
 }
 
 void TransformManager::buildTransformationMatrices()
@@ -403,19 +477,25 @@ void TransformManager::printGroupTransforms() const
 {
     std::cout << "\n=== Transformation Values ===" << std::endl;
     
+    std::cout << "\nCalculated Transforms [" << (enableCalculatedTransforms ? "ENABLED" : "DISABLED") << "]:" << std::endl;
+    std::cout << "  Active transforms: " << calculatedTransforms.size() << std::endl;
+    for (const auto& pair : calculatedTransforms) {
+        std::cout << "    " << pair.first << ": matrix set" << std::endl;
+    }
+    
     std::cout << "\nPositiv Group [" << (enablePositiv ? "ENABLED" : "DISABLED") << "]:" << std::endl;
     std::cout << "  Rotation: X=" << positivRotationX << " Y=" << positivRotationY << " Z=" << positivRotationZ << " (radians)" << std::endl;
     std::cout << "  Translation: X=" << positivTranslationX << " Y=" << positivTranslationY << " Z=" << positivTranslationZ << " (mm)" << std::endl;
     
-    std::cout << "\nTAG Group [" << (enableTag ? "ENABLED" : "DISABLED") << "]:" << std::endl;
+    std::cout << "\nManual TAG Group [" << (enableTag ? "ENABLED" : "DISABLED") << "]:" << std::endl;
     std::cout << "  Rotation: X=" << tagRotationX << " Y=" << tagRotationY << " Z=" << tagRotationZ << " (radians)" << std::endl;
     std::cout << "  Translation: X=" << tagTranslationX << " Y=" << tagTranslationY << " Z=" << tagTranslationZ << " (mm)" << std::endl;
     
-    std::cout << "\nTBG Group [" << (enableTbg ? "ENABLED" : "DISABLED") << "]:" << std::endl;
+    std::cout << "\nManual TBG Group [" << (enableTbg ? "ENABLED" : "DISABLED") << "]:" << std::endl;
     std::cout << "  Rotation: X=" << tbgRotationX << " Y=" << tbgRotationY << " Z=" << tbgRotationZ << " (radians)" << std::endl;
     std::cout << "  Translation: X=" << tbgTranslationX << " Y=" << tbgTranslationY << " Z=" << tbgTranslationZ << " (mm)" << std::endl;
     
-    std::cout << "\nTCG Group [" << (enableTcg ? "ENABLED" : "DISABLED") << "]:" << std::endl;
+    std::cout << "\nManual TCG Group [" << (enableTcg ? "ENABLED" : "DISABLED") << "]:" << std::endl;
     std::cout << "  Rotation: X=" << tcgRotationX << " Y=" << tcgRotationY << " Z=" << tcgRotationZ << " (radians)" << std::endl;
     std::cout << "  Translation: X=" << tcgTranslationX << " Y=" << tcgTranslationY << " Z=" << tcgTranslationZ << " (mm)" << std::endl;
     
@@ -432,44 +512,12 @@ glm::mat4 TransformManager::createInversePositionMatrix(const glm::vec3& positio
     return glm::translate(glm::mat4(1.0f), -position);
 }
 
-// NEW: Methods for applying calculated transformation matrices
-void TransformManager::applyCalculatedTransform(const std::string& groupName, const glm::mat4& transform)
-{
-    SubGroupType group;
-    
-    if (groupName == "TAG") {
-        group = SubGroupType::TAG;
-    } else if (groupName == "TBG") {
-        group = SubGroupType::TBG;
-    } else if (groupName == "TCG") {
-        group = SubGroupType::TCG;
-    } else {
-        std::cerr << "Unknown group name: " << groupName << std::endl;
-        return;
-    }
-    
-    // Decompose the transformation matrix
-    glm::vec3 translation, rotation, scale;
-    decomposeTransformMatrix(transform, translation, rotation, scale);
-    
-    // Apply to the specific group
-    applyDecomposedTransform(group, translation, rotation);
-    
-    // Rebuild transformation matrices
-    buildTransformationMatrices();
-}
-
+// LEGACY: Methods for applying calculated transformation matrices (kept for compatibility)
 void TransformManager::setGroupTransformMatrix(SubGroupType group, const glm::mat4& transform)
 {
-    // Decompose the transformation matrix
-    glm::vec3 translation, rotation, scale;
-    decomposeTransformMatrix(transform, translation, rotation, scale);
-    
-    // Apply to the specific group
-    applyDecomposedTransform(group, translation, rotation);
-    
-    // Rebuild transformation matrices
-    buildTransformationMatrices();
+    // Convert SubGroupType to string and use new method
+    std::string groupName = getSubGroupName(group);
+    setCalculatedTransform(groupName, transform);
 }
 
 void TransformManager::decomposeTransformMatrix(const glm::mat4& transform, 
