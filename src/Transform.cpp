@@ -163,7 +163,6 @@ glm::mat4 TransformManager::getCombinedTransform(const std::string& modelName) c
 void TransformManager::setCalculatedTransform(const std::string& groupName, const glm::mat4& transform)
 {
     calculatedTransforms[groupName] = transform;
-    std::cout << "Stored calculated transform for group: " << groupName << std::endl;
 }
 
 bool TransformManager::hasCalculatedTransform(const std::string& groupName) const
@@ -208,8 +207,6 @@ void TransformManager::applyCalculatedTransform(const std::string& groupName, co
     
     // Enable calculated transforms
     enableCalculatedTransforms = true;
-    
-    std::cout << "Applied calculated transform for group: " << groupName << " (using direct matrix)" << std::endl;
 }
 
 glm::vec3 TransformManager::getModelWorldPosition(const std::string& modelName) const

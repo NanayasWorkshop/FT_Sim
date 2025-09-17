@@ -29,6 +29,22 @@ struct CoordinateSystem {
     glm::vec3 U, V, W; // Basis vectors
 };
 
+// Structure to hold centroid movement statistics
+struct CentroidStats {
+    glm::vec3 currentPosition;     // Current centroid position
+    glm::vec3 originalPosition;    // Original resting position
+    glm::vec3 minPosition;         // Minimum X, Y, Z coordinates seen
+    glm::vec3 maxPosition;         // Maximum X, Y, Z coordinates seen
+    float boundingSphereRadius;    // Radius of sphere containing all positions
+    
+    CentroidStats() : 
+        currentPosition(0.0f), 
+        originalPosition(0.0f),
+        minPosition(FLT_MAX), 
+        maxPosition(-FLT_MAX),
+        boundingSphereRadius(0.0f) {}
+};
+
 class BulkCapacitanceProcessor
 {
 public:
@@ -70,6 +86,12 @@ private:
     SpherePositions getRestingPositions(const std::string& groupName);
     SpherePositions addOffsets(const SpherePositions& resting, const SpherePositions& offsets);
     
+    // NEW: Centroid tracking methods
+    void updateCentroidStats(const std::string& groupName, const SpherePositions& currentPositions);
+    void calculateBoundingSphere(CentroidStats& stats);
+    void printCentroidStats() const;
+    void resetCentroidStats();
+    
     // Output
     bool saveResults(const std::vector<std::vector<CapacitanceResult>>& allResults, 
                     const std::string& outputPath);
@@ -86,6 +108,11 @@ private:
     // NEW: Step mode state
     size_t currentStepRow;
     bool stepModeActive;
+    
+    // NEW: Centroid tracking data
+    CentroidStats tagCentroidStats;
+    CentroidStats tbgCentroidStats;
+    CentroidStats tcgCentroidStats;
 };
 
 #endif

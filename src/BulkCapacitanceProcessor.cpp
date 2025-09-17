@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -12,6 +13,7 @@
 
 BulkCapacitanceProcessor::BulkCapacitanceProcessor() : maxRows(0), currentStepRow(0), stepModeActive(false)
 {
+    resetCentroidStats();
 }
 
 BulkCapacitanceProcessor::~BulkCapacitanceProcessor()
@@ -53,6 +55,9 @@ bool BulkCapacitanceProcessor::initializeStepMode(const std::string& csvDirector
     currentStepRow = 0;
     stepModeActive = true;
     
+    // Initialize centroid stats with original positions
+    resetCentroidStats();
+    
     return true;
 }
 
@@ -84,6 +89,7 @@ bool BulkCapacitanceProcessor::stepToRow(size_t rowNumber, TransformManager& tra
     if (currentStepRow < tagData.rows.size()) {
         // Calculate TAG transformation
         SpherePositions tagDeformed = addOffsets(tagResting, tagData.rows[currentStepRow].offsets);
+        updateCentroidStats("TAG", tagDeformed);
         CoordinateSystem tagUVW = createCoordinateSystem(tagResting.A, tagResting.B, tagResting.C, 'A');
         CoordinateSystem tagIJK = createCoordinateSystem(tagDeformed.A, tagDeformed.B, tagDeformed.C, 'A');
         glm::mat4 tagTransform = calculateRigidBodyTransform(tagUVW, tagIJK);
@@ -95,6 +101,7 @@ bool BulkCapacitanceProcessor::stepToRow(size_t rowNumber, TransformManager& tra
     if (currentStepRow < tbgData.rows.size()) {
         // Calculate TBG transformation
         SpherePositions tbgDeformed = addOffsets(tbgResting, tbgData.rows[currentStepRow].offsets);
+        updateCentroidStats("TBG", tbgDeformed);
         CoordinateSystem tbgUVW = createCoordinateSystem(tbgResting.A, tbgResting.B, tbgResting.C, 'B');
         CoordinateSystem tbgIJK = createCoordinateSystem(tbgDeformed.A, tbgDeformed.B, tbgDeformed.C, 'B');
         glm::mat4 tbgTransform = calculateRigidBodyTransform(tbgUVW, tbgIJK);
@@ -106,6 +113,7 @@ bool BulkCapacitanceProcessor::stepToRow(size_t rowNumber, TransformManager& tra
     if (currentStepRow < tcgData.rows.size()) {
         // Calculate TCG transformation
         SpherePositions tcgDeformed = addOffsets(tcgResting, tcgData.rows[currentStepRow].offsets);
+        updateCentroidStats("TCG", tcgDeformed);
         CoordinateSystem tcgUVW = createCoordinateSystem(tcgResting.A, tcgResting.B, tcgResting.C, 'C');
         CoordinateSystem tcgIJK = createCoordinateSystem(tcgDeformed.A, tcgDeformed.B, tcgDeformed.C, 'C');
         glm::mat4 tcgTransform = calculateRigidBodyTransform(tcgUVW, tcgIJK);
@@ -141,6 +149,10 @@ void BulkCapacitanceProcessor::printCurrentRowInfo() const
         std::cout << "TAG offsets: A(" << tagOffsets.A.x << "," << tagOffsets.A.y << "," << tagOffsets.A.z 
                   << ") B(" << tagOffsets.B.x << "," << tagOffsets.B.y << "," << tagOffsets.B.z 
                   << ") C(" << tagOffsets.C.x << "," << tagOffsets.C.y << "," << tagOffsets.C.z << ")" << std::endl;
+        std::cout << "TAG centroid: (" << std::fixed << std::setprecision(3) 
+                  << tagCentroidStats.currentPosition.x << "," 
+                  << tagCentroidStats.currentPosition.y << "," 
+                  << tagCentroidStats.currentPosition.z << ")" << std::endl;
     }
     
     if (currentStepRow < tbgData.rows.size()) {
@@ -148,6 +160,10 @@ void BulkCapacitanceProcessor::printCurrentRowInfo() const
         std::cout << "TBG offsets: A(" << tbgOffsets.A.x << "," << tbgOffsets.A.y << "," << tbgOffsets.A.z 
                   << ") B(" << tbgOffsets.B.x << "," << tbgOffsets.B.y << "," << tbgOffsets.B.z 
                   << ") C(" << tbgOffsets.C.x << "," << tbgOffsets.C.y << "," << tbgOffsets.C.z << ")" << std::endl;
+        std::cout << "TBG centroid: (" << std::fixed << std::setprecision(3) 
+                  << tbgCentroidStats.currentPosition.x << "," 
+                  << tbgCentroidStats.currentPosition.y << "," 
+                  << tbgCentroidStats.currentPosition.z << ")" << std::endl;
     }
     
     if (currentStepRow < tcgData.rows.size()) {
@@ -155,6 +171,10 @@ void BulkCapacitanceProcessor::printCurrentRowInfo() const
         std::cout << "TCG offsets: A(" << tcgOffsets.A.x << "," << tcgOffsets.A.y << "," << tcgOffsets.A.z 
                   << ") B(" << tcgOffsets.B.x << "," << tcgOffsets.B.y << "," << tcgOffsets.B.z 
                   << ") C(" << tcgOffsets.C.x << "," << tcgOffsets.C.y << "," << tcgOffsets.C.z << ")" << std::endl;
+        std::cout << "TCG centroid: (" << std::fixed << std::setprecision(3) 
+                  << tcgCentroidStats.currentPosition.x << "," 
+                  << tcgCentroidStats.currentPosition.y << "," 
+                  << tcgCentroidStats.currentPosition.z << ")" << std::endl;
     }
     
     std::cout << "====================" << std::endl;
@@ -177,6 +197,9 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
                                              TransformManager& transformManager)
 {
     std::cout << "Starting bulk capacitance processing..." << std::endl;
+    
+    // Reset centroid statistics
+    resetCentroidStats();
     
     // Load all individual sphere CSV files and combine into group data
     if (!loadGroupFromIndividualFiles(csvDirectory, "TAG", tagData)) {
@@ -223,6 +246,7 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
         if (row < tagData.rows.size()) {
             // Calculate TAG transformation
             SpherePositions tagDeformed = addOffsets(tagResting, tagData.rows[row].offsets);
+            updateCentroidStats("TAG", tagDeformed);
             CoordinateSystem tagUVW = createCoordinateSystem(tagResting.A, tagResting.B, tagResting.C, 'A');
             CoordinateSystem tagIJK = createCoordinateSystem(tagDeformed.A, tagDeformed.B, tagDeformed.C, 'A');
             glm::mat4 tagTransform = calculateRigidBodyTransform(tagUVW, tagIJK);
@@ -234,6 +258,7 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
         if (row < tbgData.rows.size()) {
             // Calculate TBG transformation
             SpherePositions tbgDeformed = addOffsets(tbgResting, tbgData.rows[row].offsets);
+            updateCentroidStats("TBG", tbgDeformed);
             CoordinateSystem tbgUVW = createCoordinateSystem(tbgResting.A, tbgResting.B, tbgResting.C, 'B');
             CoordinateSystem tbgIJK = createCoordinateSystem(tbgDeformed.A, tbgDeformed.B, tbgDeformed.C, 'B');
             glm::mat4 tbgTransform = calculateRigidBodyTransform(tbgUVW, tbgIJK);
@@ -245,6 +270,7 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
         if (row < tcgData.rows.size()) {
             // Calculate TCG transformation
             SpherePositions tcgDeformed = addOffsets(tcgResting, tcgData.rows[row].offsets);
+            updateCentroidStats("TCG", tcgDeformed);
             CoordinateSystem tcgUVW = createCoordinateSystem(tcgResting.A, tcgResting.B, tcgResting.C, 'C');
             CoordinateSystem tcgIJK = createCoordinateSystem(tcgDeformed.A, tcgDeformed.B, tcgDeformed.C, 'C');
             glm::mat4 tcgTransform = calculateRigidBodyTransform(tcgUVW, tcgIJK);
@@ -274,7 +300,159 @@ bool BulkCapacitanceProcessor::processCSVFiles(const std::string& csvDirectory,
     }
     
     std::cout << "Bulk processing complete. Results saved to: " << outputPath << std::endl;
+    
+    // Print centroid movement statistics
+    printCentroidStats();
+    
     return true;
+}
+
+void BulkCapacitanceProcessor::updateCentroidStats(const std::string& groupName, const SpherePositions& currentPositions)
+{
+    // Calculate current circumcenter
+    glm::vec3 currentCentroid = calculateCircumcenter(currentPositions.A, currentPositions.B, currentPositions.C);
+    
+    CentroidStats* stats = nullptr;
+    if (groupName == "TAG") {
+        stats = &tagCentroidStats;
+    } else if (groupName == "TBG") {
+        stats = &tbgCentroidStats;
+    } else if (groupName == "TCG") {
+        stats = &tcgCentroidStats;
+    } else {
+        return;
+    }
+    
+    // Update current position
+    stats->currentPosition = currentCentroid;
+    
+    // Update min/max tracking
+    stats->minPosition.x = std::min(stats->minPosition.x, currentCentroid.x);
+    stats->minPosition.y = std::min(stats->minPosition.y, currentCentroid.y);
+    stats->minPosition.z = std::min(stats->minPosition.z, currentCentroid.z);
+    
+    stats->maxPosition.x = std::max(stats->maxPosition.x, currentCentroid.x);
+    stats->maxPosition.y = std::max(stats->maxPosition.y, currentCentroid.y);
+    stats->maxPosition.z = std::max(stats->maxPosition.z, currentCentroid.z);
+    
+    // Calculate and update bounding sphere radius
+    calculateBoundingSphere(*stats);
+}
+
+void BulkCapacitanceProcessor::calculateBoundingSphere(CentroidStats& stats)
+{
+    // Calculate distance from original position to current position
+    glm::vec3 displacement = stats.currentPosition - stats.originalPosition;
+    float currentDistance = glm::length(displacement);
+    
+    // Update bounding sphere radius if current distance is larger
+    stats.boundingSphereRadius = std::max(stats.boundingSphereRadius, currentDistance);
+}
+
+void BulkCapacitanceProcessor::printCentroidStats() const
+{
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "CENTROID MOVEMENT STATISTICS" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+    
+    // TAG Group
+    std::cout << "\nTAG Group:" << std::endl;
+    std::cout << "  Original: (" << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.originalPosition.x << ", " 
+              << tagCentroidStats.originalPosition.y << ", " 
+              << tagCentroidStats.originalPosition.z << ")" << std::endl;
+    std::cout << "  Current:  (" << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.currentPosition.x << ", " 
+              << tagCentroidStats.currentPosition.y << ", " 
+              << tagCentroidStats.currentPosition.z << ")" << std::endl;
+    std::cout << "  Range X:  " << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.minPosition.x << " to " << tagCentroidStats.maxPosition.x 
+              << " mm (span: " << (tagCentroidStats.maxPosition.x - tagCentroidStats.minPosition.x) << " mm)" << std::endl;
+    std::cout << "  Range Y:  " << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.minPosition.y << " to " << tagCentroidStats.maxPosition.y 
+              << " mm (span: " << (tagCentroidStats.maxPosition.y - tagCentroidStats.minPosition.y) << " mm)" << std::endl;
+    std::cout << "  Range Z:  " << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.minPosition.z << " to " << tagCentroidStats.maxPosition.z 
+              << " mm (span: " << (tagCentroidStats.maxPosition.z - tagCentroidStats.minPosition.z) << " mm)" << std::endl;
+    std::cout << "  Bounding sphere radius: " << std::fixed << std::setprecision(3) 
+              << tagCentroidStats.boundingSphereRadius << " mm" << std::endl;
+    
+    // TBG Group
+    std::cout << "\nTBG Group:" << std::endl;
+    std::cout << "  Original: (" << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.originalPosition.x << ", " 
+              << tbgCentroidStats.originalPosition.y << ", " 
+              << tbgCentroidStats.originalPosition.z << ")" << std::endl;
+    std::cout << "  Current:  (" << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.currentPosition.x << ", " 
+              << tbgCentroidStats.currentPosition.y << ", " 
+              << tbgCentroidStats.currentPosition.z << ")" << std::endl;
+    std::cout << "  Range X:  " << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.minPosition.x << " to " << tbgCentroidStats.maxPosition.x 
+              << " mm (span: " << (tbgCentroidStats.maxPosition.x - tbgCentroidStats.minPosition.x) << " mm)" << std::endl;
+    std::cout << "  Range Y:  " << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.minPosition.y << " to " << tbgCentroidStats.maxPosition.y 
+              << " mm (span: " << (tbgCentroidStats.maxPosition.y - tbgCentroidStats.minPosition.y) << " mm)" << std::endl;
+    std::cout << "  Range Z:  " << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.minPosition.z << " to " << tbgCentroidStats.maxPosition.z 
+              << " mm (span: " << (tbgCentroidStats.maxPosition.z - tbgCentroidStats.minPosition.z) << " mm)" << std::endl;
+    std::cout << "  Bounding sphere radius: " << std::fixed << std::setprecision(3) 
+              << tbgCentroidStats.boundingSphereRadius << " mm" << std::endl;
+    
+    // TCG Group
+    std::cout << "\nTCG Group:" << std::endl;
+    std::cout << "  Original: (" << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.originalPosition.x << ", " 
+              << tcgCentroidStats.originalPosition.y << ", " 
+              << tcgCentroidStats.originalPosition.z << ")" << std::endl;
+    std::cout << "  Current:  (" << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.currentPosition.x << ", " 
+              << tcgCentroidStats.currentPosition.y << ", " 
+              << tcgCentroidStats.currentPosition.z << ")" << std::endl;
+    std::cout << "  Range X:  " << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.minPosition.x << " to " << tcgCentroidStats.maxPosition.x 
+              << " mm (span: " << (tcgCentroidStats.maxPosition.x - tcgCentroidStats.minPosition.x) << " mm)" << std::endl;
+    std::cout << "  Range Y:  " << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.minPosition.y << " to " << tcgCentroidStats.maxPosition.y 
+              << " mm (span: " << (tcgCentroidStats.maxPosition.y - tcgCentroidStats.minPosition.y) << " mm)" << std::endl;
+    std::cout << "  Range Z:  " << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.minPosition.z << " to " << tcgCentroidStats.maxPosition.z 
+              << " mm (span: " << (tcgCentroidStats.maxPosition.z - tcgCentroidStats.minPosition.z) << " mm)" << std::endl;
+    std::cout << "  Bounding sphere radius: " << std::fixed << std::setprecision(3) 
+              << tcgCentroidStats.boundingSphereRadius << " mm" << std::endl;
+    
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+}
+
+void BulkCapacitanceProcessor::resetCentroidStats()
+{
+    // Get original resting positions for each group
+    SpherePositions tagResting = getRestingPositions("TAG");
+    SpherePositions tbgResting = getRestingPositions("TBG");
+    SpherePositions tcgResting = getRestingPositions("TCG");
+    
+    // Calculate original circumcenters
+    tagCentroidStats.originalPosition = calculateCircumcenter(tagResting.A, tagResting.B, tagResting.C);
+    tbgCentroidStats.originalPosition = calculateCircumcenter(tbgResting.A, tbgResting.B, tbgResting.C);
+    tcgCentroidStats.originalPosition = calculateCircumcenter(tcgResting.A, tcgResting.B, tcgResting.C);
+    
+    // Reset current positions to original
+    tagCentroidStats.currentPosition = tagCentroidStats.originalPosition;
+    tbgCentroidStats.currentPosition = tbgCentroidStats.originalPosition;
+    tcgCentroidStats.currentPosition = tcgCentroidStats.originalPosition;
+    
+    // Reset min/max tracking
+    tagCentroidStats.minPosition = glm::vec3(FLT_MAX);
+    tagCentroidStats.maxPosition = glm::vec3(-FLT_MAX);
+    tagCentroidStats.boundingSphereRadius = 0.0f;
+    
+    tbgCentroidStats.minPosition = glm::vec3(FLT_MAX);
+    tbgCentroidStats.maxPosition = glm::vec3(-FLT_MAX);
+    tbgCentroidStats.boundingSphereRadius = 0.0f;
+    
+    tcgCentroidStats.minPosition = glm::vec3(FLT_MAX);
+    tcgCentroidStats.maxPosition = glm::vec3(-FLT_MAX);
+    tcgCentroidStats.boundingSphereRadius = 0.0f;
 }
 
 bool BulkCapacitanceProcessor::loadGroupFromIndividualFiles(const std::string& csvDirectory, const std::string& groupName, GroupCSVData& groupData)
